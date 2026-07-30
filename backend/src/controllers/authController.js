@@ -7,31 +7,31 @@ exports.signup = async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-  return res.status(400).json({
-    success: false,
-    message: "All fields are required.",
-  });
-}
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required.",
+      });
+    }
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-if (!emailRegex.test(email)) {
-  return res.status(400).json({
-    success: false,
-    message: "Invalid email format.",
-  });
-}
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format.",
+      });
+    }
 
-const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-if (!passwordRegex.test(password)) {
-  return res.status(400).json({
-    success: false,
-    message:
-      "Password must contain uppercase, lowercase, number, special character and be at least 8 characters.",
-  });
-}
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must contain uppercase, lowercase, number, special character and be at least 8 characters.",
+      });
+    }
 
     const exists = await User.findOne({ email });
 
@@ -52,11 +52,17 @@ if (!passwordRegex.test(password)) {
     res.status(201).json({
       success: true,
       message: "Account created",
-      user,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
     });
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong. Please try again later.",
     });
   }
 };
@@ -66,22 +72,22 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-  return res.status(400).json({
-    success: false,
-    message: "Email and Password are required.",
-  });
-}
+      return res.status(400).json({
+        success: false,
+        message: "Email and Password are required.",
+      });
+    }
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-if (!emailRegex.test(email)) {
-  return res.status(400).json({
-    success: false,
-    message: "Invalid email format.",
-  });
-}
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format.",
+      });
+    }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(400).json({
@@ -104,7 +110,7 @@ if (!emailRegex.test(email)) {
       process.env.JWT_SECRET,
       {
         expiresIn: "7d",
-      }
+      },
     );
 
     res.json({
@@ -117,8 +123,10 @@ if (!emailRegex.test(email)) {
       },
     });
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong. Please try again later.",
     });
   }
 };
