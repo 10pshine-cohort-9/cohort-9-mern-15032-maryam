@@ -1,1 +1,40 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  vertical-align: top;
+  min-width: 1em;
+  position: relative;
+}
+
+.ProseMirror table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  text-align: left;
+}
+
+.ProseMirror table .selectedCell {
+  background-color: #eef2ff;
+}
+
+.ProseMirror table .column-resize-handle {
+  background-color: #6366f1;
+  bottom: -2px;
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 4px;
+  pointer-events: none;
+}
