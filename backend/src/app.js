@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 
 const authRoutes = require("./routes/authRoutes");
+const noteRoutes = require("./routes/noteRoutes");
+
 const loggerMiddleware = require("./middlewares/loggerMiddleware");
 const errorHandler = require("./middlewares/errorHandler");
 
@@ -14,6 +16,7 @@ app.use(loggerMiddleware);
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/notes", noteRoutes);
 
 app.use(errorHandler);
 
