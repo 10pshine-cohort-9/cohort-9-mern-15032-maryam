@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import API_URL from "../config/api";
+import { apiRequest, getAuthToken } from "../utils/apiRequest";
 import {
   LayoutGrid,
   FileText,
@@ -69,15 +69,12 @@ function timeAgo(dateString) {
 }
 
 function stripHtml(html) {
+  if (!html) return "";
   return html
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function getAuthToken() {
-  return localStorage.getItem("token") || sessionStorage.getItem("token");
 }
 
 function getStoredUser() {
@@ -87,29 +84,6 @@ function getStoredUser() {
   } catch {
     return null;
   }
-}
-
-async function apiRequest(path, options = {}) {
-  const token = getAuthToken();
-
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(
-      data.message || "Something went wrong. Please try again later.",
-    );
-  }
-
-  return data;
 }
 
 const NAV_ITEMS = [
@@ -130,6 +104,35 @@ export default function Dashboard() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const cancelDeleteRef = useRef(null);
+
+  useEffect(() => {
+    if (!showDeleteModal) return;
+    cancelDeleteRef.current?.focus();
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        setShowDeleteModal(false);
+        setSelectedNote(null);
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [showDeleteModal]);
+  useEffect(() => {
+    if (!openMenuId) return;
+    const closeMenu = () => setOpenMenuId(null);
+    const handleKey = (e) => {
+      if (e.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("click", closeMenu);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", closeMenu);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [openMenuId]);
   const [notice, setNotice] = useState("");
 
   const showNotice = (message, autoDismiss = false) => {
@@ -157,7 +160,9 @@ export default function Dashboard() {
     limit: 8,
   });
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sort, setSort] = useState("updated_desc");
+  const abortRef = useRef(null);
   const [view, setView] = useState("grid");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -180,41 +185,53 @@ export default function Dashboard() {
 
   const loadNotes = useCallback(
     async (page = 1) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       setLoading(true);
       setError("");
       try {
         const params = new URLSearchParams({
           filter: filterParam,
-          search,
+          search: debouncedSearch,
           sort,
           page: String(page),
           limit: "8",
         });
-        const data = await apiRequest(`/notes?${params.toString()}`);
+        const data = await apiRequest(`/notes?${params.toString()}`, {
+          signal: controller.signal,
+        });
         setNotes(data.notes);
         setPagination(data.pagination);
+        return data.pagination;
       } catch (err) {
+        if (err.name === "AbortError") return null;
         setError(err.message);
+        return null;
       } finally {
-        setLoading(false);
+        if (abortRef.current === controller) setLoading(false);
       }
     },
-    [filterParam, search, sort],
+    [filterParam, debouncedSearch, sort],
   );
+  const refreshAfterMutation = useCallback(async () => {
+    const result = await loadNotes(pagination.page);
+    if (result && result.page > result.totalPages) {
+      await loadNotes(result.totalPages);
+    }
+  }, [loadNotes, pagination.page]);
 
   useEffect(() => {
     loadStats();
   }, [loadStats]);
-
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(handle);
+  }, [search]);
   useEffect(() => {
     loadNotes(1);
   }, [loadNotes]);
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      loadNotes(1);
-    }, 350);
-    return () => clearTimeout(handle);
-  }, [search]);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -246,7 +263,7 @@ export default function Dashboard() {
   const moveToTrash = async (note) => {
     try {
       await apiRequest(`/notes/${note._id}/trash`, { method: "PATCH" });
-      setNotes((prev) => prev.filter((n) => n._id !== note._id));
+      await refreshAfterMutation();
       loadStats();
     } catch (err) {
       setNotice(err.message);
@@ -256,7 +273,7 @@ export default function Dashboard() {
   const restoreFromTrash = async (note) => {
     try {
       await apiRequest(`/notes/${note._id}/restore`, { method: "PATCH" });
-      setNotes((prev) => prev.filter((n) => n._id !== note._id));
+      await refreshAfterMutation();
       loadStats();
     } catch (err) {
       setNotice(err.message);
@@ -269,13 +286,14 @@ export default function Dashboard() {
   };
 
   const confirmDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
     try {
       await apiRequest(`/notes/${selectedNote._id}`, {
         method: "DELETE",
       });
 
-      setNotes((prev) => prev.filter((note) => note._id !== selectedNote._id));
-
+      await refreshAfterMutation();
       loadStats();
       setShowDeleteModal(false);
       setSelectedNote(null);
@@ -283,7 +301,35 @@ export default function Dashboard() {
       showNotice("Note permanently deleted.", true);
     } catch (err) {
       setNotice(err.message);
+    } finally {
+      setDeleting(false);
     }
+  };
+  const getPageWindow = (current, total) => {
+    const delta = 1;
+    const range = [];
+    const rangeWithDots = [];
+    let last;
+
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+        range.push(i);
+      }
+    }
+
+    for (const i of range) {
+      if (last !== undefined) {
+        if (i - last === 2) {
+          rangeWithDots.push(last + 1);
+        } else if (i - last > 2) {
+          rangeWithDots.push("...");
+        }
+      }
+      rangeWithDots.push(i);
+      last = i;
+    }
+
+    return rangeWithDots;
   };
 
   const heading = useMemo(() => {
@@ -341,6 +387,7 @@ export default function Dashboard() {
 
   const initials = (user?.name || "U")
     .split(" ")
+    .filter(Boolean)
     .map((p) => p[0])
     .slice(0, 2)
     .join("")
@@ -620,8 +667,16 @@ export default function Dashboard() {
                   return (
                     <div
                       key={note._id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => navigate(`/notes/${note._id}`)}
-                      className="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow flex flex-col"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/notes/${note._id}`);
+                        }
+                      }}
+                      className="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow flex flex-col outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div
@@ -664,49 +719,64 @@ export default function Dashboard() {
                           <span className="text-xs text-slate-400">
                             {timeAgo(note.updatedAt)}
                           </span>
-                          <div className="relative group">
+                          <div className="relative">
                             <button
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId((id) =>
+                                  id === note._id ? null : note._id,
+                                );
+                              }}
                               className="text-slate-400 hover:text-slate-600"
                               aria-label="More options"
+                              aria-haspopup="menu"
+                              aria-expanded={openMenuId === note._id}
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>
-                            <div className="hidden group-hover:block absolute right-0 bottom-6 w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10">
-                              {activeNav === "trash" ? (
-                                <>
+                            {openMenuId === note._id && (
+                              <div
+                                role="menu"
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 bottom-6 w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10"
+                              >
+                                {activeNav === "trash" ? (
+                                  <>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setOpenMenuId(null);
+                                        restoreFromTrash(note);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                                    >
+                                      Restore
+                                    </button>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setOpenMenuId(null);
+                                        deleteForever(note);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                                    >
+                                      Delete Forever
+                                    </button>
+                                  </>
+                                ) : (
                                   <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      restoreFromTrash(note);
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      moveToTrash(note);
                                     }}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                                    className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50"
                                   >
-                                    Restore
+                                    Move to Trash
                                   </button>
-
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteForever(note);
-                                    }}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                                  >
-                                    Delete Forever
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    moveToTrash(note);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50"
-                                >
-                                  Move to Trash
-                                </button>
-                              )}
-                            </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -727,22 +797,29 @@ export default function Dashboard() {
                     <ChevronLeft className="w-4 h-4" />
                   </button>
 
-                  {Array.from({ length: pagination.totalPages }).map((_, i) => {
-                    const pageNum = i + 1;
-                    return (
+                  {getPageWindow(pagination.page, pagination.totalPages).map((item, i) =>
+                    item === "..." ? (
+                      <span
+                        key={`dots-${i}`}
+                        className="w-8 h-8 flex items-center justify-center text-sm text-slate-400"
+                      >
+                        …
+                      </span>
+                    ) : (
                       <button
-                        key={pageNum}
-                        onClick={() => loadNotes(pageNum)}
+                        key={item}
+                        onClick={() => loadNotes(item)}
+                        aria-current={pagination.page === item ? "page" : undefined}
                         className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
-                          pagination.page === pageNum
+                          pagination.page === item
                             ? "bg-indigo-600 text-white"
                             : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                         }`}
                       >
-                        {pageNum}
+                        {item}
                       </button>
-                    );
-                  })}
+                    )
+                  )}
 
                   <button
                     onClick={() =>
@@ -771,31 +848,33 @@ export default function Dashboard() {
         </div>
       </div>
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-note-title"
+        >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-2xl">
                 <Trash2 className="w-6 h-6 text-red-600" />
               </div>
-
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">
+                <h2 id="delete-note-title" className="text-lg font-semibold text-slate-800">
                   Delete Note
                 </h2>
-
                 <p className="text-sm text-slate-500">
                   This action cannot be undone.
                 </p>
               </div>
             </div>
-
             <p className="mt-5 text-slate-700">
               Are you sure you want to permanently delete
               <strong> "{selectedNote?.title}"</strong>?
             </p>
-
             <div className="flex justify-end gap-3 mt-8">
               <button
+                ref={cancelDeleteRef}
                 onClick={() => {
                   setShowDeleteModal(false);
                   setSelectedNote(null);
@@ -804,12 +883,12 @@ export default function Dashboard() {
               >
                 Cancel
               </button>
-
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Delete Forever
+                {deleting ? "Deleting..." : "Delete Forever"}
               </button>
             </div>
           </div>

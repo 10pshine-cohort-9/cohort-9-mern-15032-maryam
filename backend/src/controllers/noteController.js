@@ -1,5 +1,9 @@
 const Note = require("../models/Note");
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 exports.getNotes = async (req, res) => {
   try {
     const {
@@ -25,9 +29,10 @@ exports.getNotes = async (req, res) => {
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search);
       query.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { content: { $regex: search, $options: "i" } },
+        { title: { $regex: safeSearch, $options: "i" } },
+        { content: { $regex: safeSearch, $options: "i" } },
       ];
     }
 
@@ -43,7 +48,7 @@ exports.getNotes = async (req, res) => {
     const sortBy = sortMap[sort] || sortMap.updated_desc;
 
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNum = Math.max(parseInt(limit, 10) || 8, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 8, 1), 50);
     const skip = (pageNum - 1) * limitNum;
 
     const [notes, total] = await Promise.all([
@@ -151,10 +156,28 @@ exports.createNote = async (req, res) => {
   try {
     const { title, content, category } = req.body;
 
-    if (!title || !title.trim()) {
+    if (typeof title !== "string" || !title.trim()) {
       return res.status(400).json({
         success: false,
         message: "Title is required.",
+      });
+    }
+    if (title.trim().length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Title must be 100 characters or fewer.",
+      });
+    }
+    if (content !== undefined && typeof content !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Content must be text.",
+      });
+    }
+    if (category !== undefined && typeof category !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Category must be text.",
       });
     }
 
@@ -172,6 +195,9 @@ exports.createNote = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    if (err.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     return res.status(500).json({
       success: false,
       message: "Something went wrong. Please try again later.",
@@ -191,15 +217,42 @@ exports.updateNote = async (req, res) => {
         message: "Note not found",
       });
     }
-    if (title !== undefined && !title.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Title is required.",
-      });
+
+    if (title !== undefined) {
+      if (typeof title !== "string" || !title.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Title is required.",
+        });
+      }
+      if (title.trim().length > 100) {
+        return res.status(400).json({
+          success: false,
+          message: "Title must be 100 characters or fewer.",
+        });
+      }
+      note.title = title.trim();
     }
-    if (title !== undefined) note.title = title.trim();
-    if (content !== undefined) note.content = content;
-    if (category !== undefined) note.category = category.trim() || "General";
+
+    if (content !== undefined) {
+      if (typeof content !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Content must be text.",
+        });
+      }
+      note.content = content;
+    }
+
+    if (category !== undefined) {
+      if (typeof category !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Category must be text.",
+        });
+      }
+      note.category = category.trim() || "General";
+    }
 
     await note.save();
 
@@ -210,6 +263,9 @@ exports.updateNote = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    if (err.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     return res.status(500).json({
       success: false,
       message: "Something went wrong. Please try again later.",

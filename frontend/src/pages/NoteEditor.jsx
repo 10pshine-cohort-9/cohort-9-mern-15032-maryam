@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import API_URL from "../config/api";
+import { apiRequest, getAuthToken } from "../utils/apiRequest";
 import RichTextEditor from "../components/editor/RichTextEditor";
 import {
   FileText,
@@ -34,29 +34,6 @@ function timeAgo(dateLike) {
   return `${hours}h ago`;
 }
 
-function getAuthToken() {
-  return localStorage.getItem("token") || sessionStorage.getItem("token");
-}
-
-async function apiRequest(path, options = {}) {
-  const token = getAuthToken();
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(
-      data.message || "Something went wrong. Please try again later.",
-    );
-  }
-  return data;
-}
-
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { key: "all", label: "All Notes", icon: FileText },
@@ -75,6 +52,9 @@ export default function NoteEditor() {
   const titleRef = useRef("");
   const contentRef = useRef("");
   const saveTimer = useRef(null);
+  const noteIdRef = useRef(isNew ? null : id);
+  const savingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
 
   const [noteId, setNoteId] = useState(isNew ? null : id);
   const [title, setTitle] = useState("");
@@ -88,9 +68,25 @@ export default function NoteEditor() {
   const [charCount, setCharCount] = useState(0);
 
   titleRef.current = title;
-
   useEffect(() => {
-    if (isNew) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+
+    noteIdRef.current = isNew ? null : id;
+    setNoteId(isNew ? null : id);
+    setTitle("");
+    contentRef.current = "";
+    richTextRef.current?.setContent("");
+    setStatus("idle");
+    setLastSavedAt(null);
+    setCreatedOrUpdatedAt(null);
+    setNotice("");
+    setWordCount(0);
+    setCharCount(0);
+
+    if (isNew) {
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -123,15 +119,21 @@ export default function NoteEditor() {
   };
 
   const persist = useCallback(async () => {
+    if (savingRef.current) {
+      pendingSaveRef.current = true;
+      return false;
+    }
+
     const currentTitle = titleRef.current.trim();
     if (!currentTitle) {
       setStatus("idle");
       return false;
     }
 
+    savingRef.current = true;
     setStatus("saving");
     try {
-      if (!noteId) {
+      if (!noteIdRef.current) {
         const data = await apiRequest("/notes", {
           method: "POST",
           body: JSON.stringify({
@@ -139,10 +141,11 @@ export default function NoteEditor() {
             content: contentRef.current,
           }),
         });
+        noteIdRef.current = data.note._id;
         setNoteId(data.note._id);
         navigate(`/notes/${data.note._id}`, { replace: true });
       } else {
-        await apiRequest(`/notes/${noteId}`, {
+        await apiRequest(`/notes/${noteIdRef.current}`, {
           method: "PUT",
           body: JSON.stringify({
             title: currentTitle,
@@ -157,8 +160,14 @@ export default function NoteEditor() {
       setStatus("error");
       setNotice(err.message);
       return false;
+    } finally {
+      savingRef.current = false;
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        persist();
+      }
     }
-  }, [noteId, navigate]);
+  }, [navigate]);
 
   const scheduleAutosave = () => {
     setStatus("unsaved");
@@ -189,12 +198,14 @@ export default function NoteEditor() {
   };
 
   const handleSaveDraft = async () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     const saved = await persist();
     if (saved) setNotice("Draft saved.");
     else if (!titleRef.current.trim()) setNotice("Add a title before saving.");
   };
 
   const handleSaveNote = async () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     const saved = await persist();
     if (saved) {
       navigate("/dashboard");

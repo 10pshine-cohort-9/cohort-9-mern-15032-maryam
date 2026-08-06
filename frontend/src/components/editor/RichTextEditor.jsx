@@ -70,11 +70,12 @@ function InsertUrlModal({ mode, onCancel, onConfirm }) {
 
 const RichTextEditor = forwardRef(function RichTextEditor(
   { initialContent = "", placeholder = "Start writing...", onUpdate },
-  ref
+  ref,
 ) {
   const [insertMode, setInsertMode] = useState(null);
 
   const editor = useEditor({
+    shouldRerenderOnTransaction: true,
     extensions: [
       StarterKit,
       TableKit,
@@ -97,19 +98,25 @@ const RichTextEditor = forwardRef(function RichTextEditor(
   useImperativeHandle(
     ref,
     () => ({
-      setContent: (html) => editor?.commands.setContent(html || "", { emitUpdate: false }),
+      setContent: (html) =>
+        editor?.commands.setContent(html || "", { emitUpdate: false }),
       getHTML: () => editor?.getHTML() || "",
       getText: () => editor?.getText() || "",
       focus: () => editor?.commands.focus(),
     }),
-    [editor]
+    [editor],
   );
 
   if (!editor) return null;
 
   const confirmInsert = (url) => {
     if (insertMode === "link") {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: url })
+        .run();
     }
     if (insertMode === "image") {
       editor.chain().focus().setImage({ src: url }).run();
@@ -118,31 +125,113 @@ const RichTextEditor = forwardRef(function RichTextEditor(
   };
 
   const toolbarButtons = [
-    { icon: Bold, action: () => editor.chain().focus().toggleBold().run(), active: "bold", label: "Bold" },
-    { icon: Italic, action: () => editor.chain().focus().toggleItalic().run(), active: "italic", label: "Italic" },
-    { icon: Underline, action: () => editor.chain().focus().toggleUnderline().run(), active: "underline", label: "Underline" },
-    { icon: Strikethrough, action: () => editor.chain().focus().toggleStrike().run(), active: "strike", label: "Strikethrough" },
+    {
+      icon: Bold,
+      action: () => editor.chain().focus().toggleBold().run(),
+      active: "bold",
+      label: "Bold",
+    },
+    {
+      icon: Italic,
+      action: () => editor.chain().focus().toggleItalic().run(),
+      active: "italic",
+      label: "Italic",
+    },
+    {
+      icon: Underline,
+      action: () => editor.chain().focus().toggleUnderline().run(),
+      active: "underline",
+      label: "Underline",
+    },
+    {
+      icon: Strikethrough,
+      action: () => editor.chain().focus().toggleStrike().run(),
+      active: "strike",
+      label: "Strikethrough",
+    },
     { divider: true },
-    { icon: List, action: () => editor.chain().focus().toggleBulletList().run(), active: "bulletList", label: "Bullet list" },
-    { icon: ListOrdered, action: () => editor.chain().focus().toggleOrderedList().run(), active: "orderedList", label: "Numbered list" },
+    {
+      icon: List,
+      action: () => editor.chain().focus().toggleBulletList().run(),
+      active: "bulletList",
+      label: "Bullet list",
+    },
+    {
+      icon: ListOrdered,
+      action: () => editor.chain().focus().toggleOrderedList().run(),
+      active: "orderedList",
+      label: "Numbered list",
+    },
     { divider: true },
-    { icon: AlignLeft, action: () => editor.chain().focus().setTextAlign("left").run(), active: { textAlign: "left" }, label: "Align left" },
-    { icon: AlignCenter, action: () => editor.chain().focus().setTextAlign("center").run(), active: { textAlign: "center" }, label: "Align center" },
-    { icon: AlignRight, action: () => editor.chain().focus().setTextAlign("right").run(), active: { textAlign: "right" }, label: "Align right" },
-    { icon: AlignJustify, action: () => editor.chain().focus().setTextAlign("justify").run(), active: { textAlign: "justify" }, label: "Justify" },
+    {
+      icon: AlignLeft,
+      action: () => editor.chain().focus().setTextAlign("left").run(),
+      active: { textAlign: "left" },
+      label: "Align left",
+    },
+    {
+      icon: AlignCenter,
+      action: () => editor.chain().focus().setTextAlign("center").run(),
+      active: { textAlign: "center" },
+      label: "Align center",
+    },
+    {
+      icon: AlignRight,
+      action: () => editor.chain().focus().setTextAlign("right").run(),
+      active: { textAlign: "right" },
+      label: "Align right",
+    },
+    {
+      icon: AlignJustify,
+      action: () => editor.chain().focus().setTextAlign("justify").run(),
+      active: { textAlign: "justify" },
+      label: "Justify",
+    },
     { divider: true },
-    { icon: Link2, action: () => setInsertMode("link"), active: "link", label: "Insert link" },
-    { icon: ImageIcon, action: () => setInsertMode("image"), label: "Insert image" },
-    { icon: Quote, action: () => editor.chain().focus().toggleBlockquote().run(), active: "blockquote", label: "Quote" },
-    { icon: Code2, action: () => editor.chain().focus().toggleCodeBlock().run(), active: "codeBlock", label: "Code block" },
+    {
+      icon: Link2,
+      action: () => setInsertMode("link"),
+      active: "link",
+      label: "Insert link",
+    },
+    {
+      icon: ImageIcon,
+      action: () => setInsertMode("image"),
+      label: "Insert image",
+    },
+    {
+      icon: Quote,
+      action: () => editor.chain().focus().toggleBlockquote().run(),
+      active: "blockquote",
+      label: "Quote",
+    },
+    {
+      icon: Code2,
+      action: () => editor.chain().focus().toggleCodeBlock().run(),
+      active: "codeBlock",
+      label: "Code block",
+    },
     {
       icon: TableIcon,
-      action: () => editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run(),
+      action: () =>
+        editor
+          .chain()
+          .focus()
+          .insertTable({ rows: 2, cols: 2, withHeaderRow: true })
+          .run(),
       label: "Insert table",
     },
     { divider: true },
-    { icon: Undo2, action: () => editor.chain().focus().undo().run(), label: "Undo" },
-    { icon: Redo2, action: () => editor.chain().focus().redo().run(), label: "Redo" },
+    {
+      icon: Undo2,
+      action: () => editor.chain().focus().undo().run(),
+      label: "Undo",
+    },
+    {
+      icon: Redo2,
+      action: () => editor.chain().focus().redo().run(),
+      label: "Redo",
+    },
   ];
 
   const isActive = (active) => {
@@ -154,20 +243,29 @@ const RichTextEditor = forwardRef(function RichTextEditor(
   const currentBlock = editor.isActive("heading", { level: 1 })
     ? "H1"
     : editor.isActive("heading", { level: 2 })
-    ? "H2"
-    : editor.isActive("heading", { level: 3 })
-    ? "H3"
-    : "P";
+      ? "H2"
+      : editor.isActive("heading", { level: 3 })
+        ? "H3"
+        : "P";
 
   const handleFormatBlock = (e) => {
     const value = e.target.value;
     if (value === "P") editor.chain().focus().setParagraph().run();
-    else editor.chain().focus().toggleHeading({ level: Number(value.slice(1)) }).run();
+    else
+      editor
+        .chain()
+        .focus()
+        .toggleHeading({ level: Number(value.slice(1)) })
+        .run();
   };
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl flex-1 flex flex-col">
-      <InsertUrlModal mode={insertMode} onCancel={() => setInsertMode(null)} onConfirm={confirmInsert} />
+      <InsertUrlModal
+        mode={insertMode}
+        onCancel={() => setInsertMode(null)}
+        onConfirm={confirmInsert}
+      />
       <div className="flex flex-wrap items-center gap-1 px-3 py-2 border-b border-slate-100">
         <select
           value={currentBlock}
@@ -191,12 +289,14 @@ const RichTextEditor = forwardRef(function RichTextEditor(
               onMouseDown={(e) => e.preventDefault()}
               onClick={btn.action}
               className={`p-1.5 rounded-md hover:bg-slate-100 ${
-                isActive(btn.active) ? "bg-indigo-50 text-indigo-600" : "text-slate-500 hover:text-slate-700"
+                isActive(btn.active)
+                  ? "bg-indigo-50 text-indigo-600"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
               <btn.icon className="w-4 h-4" />
             </button>
-          )
+          ),
         )}
       </div>
       <EditorContent editor={editor} className="flex-1 flex flex-col" />

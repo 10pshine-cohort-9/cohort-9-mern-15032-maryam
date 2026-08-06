@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 
 const router = express.Router();
 
@@ -18,6 +19,12 @@ const {
 } = require("../controllers/noteController");
 
 router.use(authMiddleware);
+router.param("id", (req, res, next, id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({ success: false, message: "Note not found" });
+  }
+  next();
+});
 
 router.get("/stats", getStats);
 router.get("/categories", getCategories);
