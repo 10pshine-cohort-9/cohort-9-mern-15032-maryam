@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiRequest, getAuthToken } from "../utils/apiRequest";
+import ProfilePanel from "../components/profile/ProfilePanel";
 import {
   LayoutGrid,
   FileText,
@@ -10,6 +11,7 @@ import {
   Tag,
   Settings,
   User as UserIcon,
+  Image as ImageIcon,
   Menu,
   Search,
   Bell,
@@ -97,11 +99,15 @@ const NAV_ITEMS = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get("category");
+  const searchParam = searchParams.get("search");
 
-  const [user] = useState(getStoredUser);
+  const [user, setUser] = useState(getStoredUser);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("dashboard");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -120,6 +126,7 @@ export default function Dashboard() {
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [showDeleteModal]);
+
   useEffect(() => {
     if (!openMenuId) return;
     const closeMenu = () => setOpenMenuId(null);
@@ -133,6 +140,7 @@ export default function Dashboard() {
       document.removeEventListener("keydown", handleKey);
     };
   }, [openMenuId]);
+
   const [notice, setNotice] = useState("");
 
   const showNotice = (message, autoDismiss = false) => {
@@ -159,20 +167,21 @@ export default function Dashboard() {
     total: 0,
     limit: 8,
   });
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(searchParam || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParam || "");
   const [sort, setSort] = useState("updated_desc");
   const abortRef = useRef(null);
   const [view, setView] = useState("grid");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   useEffect(() => {
     if (!getAuthToken()) {
       navigate("/");
     }
   }, [navigate]);
 
-  const filterParam = activeNav === "dashboard" ? "all" : activeNav;
+  const filterParam = categoryParam || (activeNav === "dashboard" ? "all" : activeNav);
 
   const loadStats = useCallback(async () => {
     try {
@@ -215,6 +224,7 @@ export default function Dashboard() {
     },
     [filterParam, debouncedSearch, sort],
   );
+
   const refreshAfterMutation = useCallback(async () => {
     const result = await loadNotes(pagination.page);
     if (result && result.page > result.totalPages) {
@@ -225,13 +235,21 @@ export default function Dashboard() {
   useEffect(() => {
     loadStats();
   }, [loadStats]);
+
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(handle);
   }, [search]);
+
   useEffect(() => {
     loadNotes(1);
   }, [loadNotes]);
+
+  const goToNav = (key) => {
+    if (categoryParam) setSearchParams({}, { replace: true });
+    setNotice("");
+    setActiveNav(key);
+  };
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -305,6 +323,7 @@ export default function Dashboard() {
       setDeleting(false);
     }
   };
+
   const getPageWindow = (current, total) => {
     const delta = 1;
     const range = [];
@@ -333,6 +352,12 @@ export default function Dashboard() {
   };
 
   const heading = useMemo(() => {
+    if (categoryParam) {
+      return {
+        title: categoryParam,
+        subtitle: `Notes in "${categoryParam}".`,
+      };
+    }
     switch (activeNav) {
       case "favorites":
         return {
@@ -356,7 +381,7 @@ export default function Dashboard() {
           subtitle: "Here's what's happening with your notes.",
         };
     }
-  }, [activeNav]);
+  }, [activeNav, categoryParam]);
 
   const statCards = [
     {
@@ -393,6 +418,8 @@ export default function Dashboard() {
     .join("")
     .toUpperCase();
 
+  const showDashboardMode = !categoryParam && activeNav === "dashboard";
+
   return (
     <>
       <div className="min-h-screen bg-slate-50 flex">
@@ -411,17 +438,20 @@ export default function Dashboard() {
           <nav className="flex-1 px-3 py-4 space-y-1">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
-              const isActive = activeNav === item.key;
+              const isActive = !categoryParam && activeNav === item.key;
               return (
                 <button
                   key={item.key}
                   onClick={() => {
-                    if (item.key === "categories" || item.key === "tags") {
-                      setNotice(`${item.label} view is coming soon.`);
+                    if (item.key === "categories") {
+                      navigate("/categories");
                       return;
                     }
-                    setNotice("");
-                    setActiveNav(item.key);
+                    if (item.key === "tags") {
+                      showNotice("Tags view is coming soon.", true);
+                      return;
+                    }
+                    goToNav(item.key);
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     isActive
@@ -437,14 +467,14 @@ export default function Dashboard() {
 
             <div className="!mt-4 pt-4 border-t border-slate-100 space-y-1">
               <button
-                onClick={() => setNotice("Settings page is coming soon.")}
+                onClick={() => navigate("/settings")}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 <Settings className="w-4.5 h-4.5" size={18} />
                 Settings
               </button>
               <button
-                onClick={() => setNotice("Profile page is coming soon.")}
+                onClick={() => setProfileOpen(true)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 <UserIcon className="w-4.5 h-4.5" size={18} />
@@ -464,7 +494,7 @@ export default function Dashboard() {
               Enable cloud backup to keep your notes safe.
             </p>
             <button
-              onClick={() => setNotice("Cloud backup isn't implemented yet.")}
+              onClick={() => showNotice("Cloud backup isn't implemented yet.", true)}
               className="w-full bg-indigo-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-700"
             >
               Enable Backup
@@ -498,7 +528,7 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-4 ml-auto">
               <button
-                onClick={() => setNotice("No new notifications.")}
+                onClick={() => showNotice("No new notifications.", true)}
                 className="relative text-slate-500 hover:text-slate-700"
                 aria-label="Notifications"
               >
@@ -506,31 +536,21 @@ export default function Dashboard() {
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-indigo-600" />
               </button>
 
-              <div className="relative">
-                <button
-                  onClick={() => setProfileMenuOpen((o) => !o)}
-                  className="flex items-center gap-2"
-                >
-                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center">
-                    {initials}
-                  </div>
-                  <span className="text-sm font-medium text-slate-700">
-                    {user?.name || "Account"}
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                </button>
-
-                {profileMenuOpen && (
-                  <div className="absolute right-0 top-11 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10">
-                    <button
-                      onClick={logout}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => setProfileOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center overflow-hidden">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <span className="text-sm font-medium text-slate-700">
+                  {user?.name || "Account"}
+                </span>
+              </button>
             </div>
           </header>
 
@@ -550,7 +570,7 @@ export default function Dashboard() {
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                  {heading.title} {activeNav === "dashboard" && <span></span>}
+                  {heading.title} {showDashboardMode && <span></span>}
                 </h1>
                 <p className="text-sm text-slate-500 mt-1">
                   {heading.subtitle}
@@ -565,33 +585,35 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {statCards.map((card) => {
-                const Icon = card.icon;
-                return (
-                  <div
-                    key={card.label}
-                    className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4"
-                  >
+            {showDashboardMode && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                {statCards.map((card) => {
+                  const Icon = card.icon;
+                  return (
                     <div
-                      className={`w-11 h-11 rounded-lg flex items-center justify-center ${card.accent}`}
+                      key={card.label}
+                      className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4"
                     >
-                      <Icon className="w-5 h-5" />
+                      <div
+                        className={`w-11 h-11 rounded-lg flex items-center justify-center ${card.accent}`}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {card.value}
+                        </p>
+                        <p className="text-xs text-slate-500">{card.label}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-2xl font-bold text-slate-900">
-                        {card.value}
-                      </p>
-                      <p className="text-xs text-slate-500">{card.label}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h2 className="text-lg font-semibold text-slate-900">
-                {activeNav === "dashboard" ? "Recent Notes" : heading.title}
+                {showDashboardMode ? "Recent Notes" : heading.title}
               </h2>
 
               <div className="flex items-center gap-2">
@@ -645,11 +667,11 @@ export default function Dashboard() {
             ) : notes.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-slate-200 rounded-xl">
                 <p className="text-slate-500 text-sm">
-                  {activeNav === "trash"
+                  {activeNav === "trash" && !categoryParam
                     ? "Trash is empty."
                     : "No notes here yet."}
                 </p>
-                {activeNav !== "trash" && (
+                {!(activeNav === "trash" && !categoryParam) && (
                   <button
                     onClick={() => navigate("/notes/new")}
                     className="mt-3 text-indigo-600 text-sm font-medium hover:underline"
@@ -684,29 +706,43 @@ export default function Dashboard() {
                         >
                           <FileText className="w-4.5 h-4.5" size={18} />
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(note);
-                          }}
-                          aria-label="Toggle favorite"
-                        >
-                          <Star
-                            className={`w-4.5 h-4.5 ${
-                              note.isFavorite
-                                ? "fill-amber-400 text-amber-400"
-                                : "text-slate-300"
-                            }`}
-                            size={18}
-                          />
-                        </button>
+                        {!(activeNav === "trash" && !categoryParam) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(note);
+                            }}
+                            aria-label="Toggle favorite"
+                          >
+                            <Star
+                              className={`w-4.5 h-4.5 ${
+                                note.isFavorite
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-slate-300"
+                              }`}
+                              size={18}
+                            />
+                          </button>
+                        )}
                       </div>
 
                       <h3 className="font-semibold text-slate-800 mb-1 truncate">
                         {note.title}
                       </h3>
-                      <p className="text-sm text-slate-500 line-clamp-2 flex-1">
-                        {stripHtml(note.content) || "No content yet"}
+                      <p className="text-sm text-slate-500 line-clamp-2 flex-1 flex items-center gap-1.5">
+                        {(() => {
+                          const plainText = stripHtml(note.content);
+                          if (plainText) return plainText;
+                          if (note.content?.includes("<img")) {
+                            return (
+                              <>
+                                <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+                                Photo
+                              </>
+                            );
+                          }
+                          return "No content yet";
+                        })()}
                       </p>
 
                       <div className="flex items-center justify-between mt-4">
@@ -740,7 +776,7 @@ export default function Dashboard() {
                                 onClick={(e) => e.stopPropagation()}
                                 className="absolute right-0 bottom-6 w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10"
                               >
-                                {activeNav === "trash" ? (
+                                {activeNav === "trash" && !categoryParam ? (
                                   <>
                                     <button
                                       role="menuitem"
@@ -894,6 +930,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      <ProfilePanel
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onUpdate={setUser}
+      />
     </>
   );
 }

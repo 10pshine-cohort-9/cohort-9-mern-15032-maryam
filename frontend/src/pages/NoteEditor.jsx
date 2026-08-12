@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { apiRequest, getAuthToken } from "../utils/apiRequest";
+import { apiRequest } from "../utils/apiRequest";
+import ProfilePanel from "../components/profile/ProfilePanel";
 import RichTextEditor from "../components/editor/RichTextEditor";
 import {
   FileText,
@@ -50,6 +51,7 @@ export default function NoteEditor() {
 
   const richTextRef = useRef(null);
   const titleRef = useRef("");
+  const categoryRef = useRef("General");
   const contentRef = useRef("");
   const saveTimer = useRef(null);
   const noteIdRef = useRef(isNew ? null : id);
@@ -58,6 +60,7 @@ export default function NoteEditor() {
 
   const [noteId, setNoteId] = useState(isNew ? null : id);
   const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("General");
   const [loading, setLoading] = useState(!isNew);
   const [status, setStatus] = useState("idle");
   const [lastSavedAt, setLastSavedAt] = useState(null);
@@ -66,14 +69,18 @@ export default function NoteEditor() {
   const [expanded, setExpanded] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   titleRef.current = title;
+  categoryRef.current = category;
+
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
 
     noteIdRef.current = isNew ? null : id;
     setNoteId(isNew ? null : id);
     setTitle("");
+    setCategory("General");
     contentRef.current = "";
     richTextRef.current?.setContent("");
     setStatus("idle");
@@ -94,6 +101,7 @@ export default function NoteEditor() {
       .then((data) => {
         if (cancelled) return;
         setTitle(data.note.title);
+        setCategory(data.note.category || "General");
         contentRef.current = data.note.content || "";
         setCreatedOrUpdatedAt(data.note.updatedAt);
       })
@@ -139,6 +147,7 @@ export default function NoteEditor() {
           body: JSON.stringify({
             title: currentTitle,
             content: contentRef.current,
+            category: categoryRef.current,
           }),
         });
         noteIdRef.current = data.note._id;
@@ -150,6 +159,7 @@ export default function NoteEditor() {
           body: JSON.stringify({
             title: currentTitle,
             content: contentRef.current,
+            category: categoryRef.current,
           }),
         });
       }
@@ -191,6 +201,12 @@ export default function NoteEditor() {
     }
     scheduleAutosave();
   };
+
+  const handleCategoryChange = (e) => {
+    setCategory(e.target.value);
+    scheduleAutosave();
+  };
+
   const handleEditorUpdate = (html, text) => {
     contentRef.current = html;
     updateCounts(text);
@@ -271,7 +287,9 @@ export default function NoteEditor() {
               return (
                 <button
                   key={item.key}
-                  onClick={() => navigate("/dashboard")}
+                  onClick={() =>
+                    navigate(item.key === "categories" ? "/categories" : "/dashboard")
+                  }
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
                 >
                   <Icon className="w-4.5 h-4.5" size={18} />
@@ -289,7 +307,7 @@ export default function NoteEditor() {
                 Settings
               </button>
               <button
-                onClick={() => navigate("/dashboard")}
+                onClick={() => setProfileOpen(true)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 <UserIcon className="w-4.5 h-4.5" size={18} />
@@ -383,12 +401,24 @@ export default function NoteEditor() {
             </div>
           ) : (
             <div className="max-w-4xl mx-auto flex flex-col gap-4">
-              <input
-                value={title}
-                onChange={handleTitleChange}
-                placeholder="Untitled note"
-                className="w-full text-lg font-bold text-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-400 bg-white"
-              />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  value={title}
+                  onChange={handleTitleChange}
+                  placeholder="Untitled note"
+                  className="flex-1 text-lg font-bold text-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-400 bg-white"
+                />
+                <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 bg-white sm:w-56">
+                  <Folder className="w-4 h-4 text-slate-400 shrink-0" />
+                  <input
+                    value={category}
+                    onChange={handleCategoryChange}
+                    placeholder="Category"
+                    maxLength={40}
+                    className="w-full py-3 text-sm text-slate-700 outline-none bg-transparent"
+                  />
+                </div>
+              </div>
 
               <RichTextEditor
                 ref={richTextRef}
@@ -435,6 +465,7 @@ export default function NoteEditor() {
           )}
         </main>
       </div>
+      <ProfilePanel open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }

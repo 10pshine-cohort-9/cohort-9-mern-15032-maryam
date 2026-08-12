@@ -23,6 +23,9 @@ import {
   Table as TableIcon,
   Undo2,
   Redo2,
+  Plus,
+  Minus,
+  Trash2,
 } from "lucide-react";
 
 function InsertUrlModal({ mode, onCancel, onConfirm }) {
@@ -299,6 +302,52 @@ const RichTextEditor = forwardRef(function RichTextEditor(
           ),
         )}
       </div>
+      {editor.isActive("table") && (
+        <div className="flex flex-wrap items-center gap-1 px-3 py-1.5 border-b border-slate-100 bg-slate-50 text-xs">
+          <span className="text-slate-400 mr-1">Table:</span>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-slate-600 hover:bg-slate-100"
+          >
+            <Plus className="w-3 h-3" /> Row
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-slate-600 hover:bg-slate-100"
+          >
+            <Plus className="w-3 h-3" /> Column
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-slate-600 hover:bg-slate-100"
+          >
+            <Minus className="w-3 h-3" /> Row
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-slate-600 hover:bg-slate-100"
+          >
+            <Minus className="w-3 h-3" /> Column
+          </button>
+          <div className="w-px h-4 bg-slate-200 mx-1" />
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-rose-600 hover:bg-rose-50"
+          >
+            <Trash2 className="w-3 h-3" /> Delete table
+          </button>
+        </div>
+      )}
       <EditorContent editor={editor} className="flex-1 flex flex-col" />
     </div>
   );
