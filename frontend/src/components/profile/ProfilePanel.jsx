@@ -125,11 +125,12 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
     };
   }, [open]);
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
 
-    // Remember what had focus before the panel opened, so we can give
-    // it back when the panel closes — standard dialog accessibility.
     previouslyFocusedRef.current = document.activeElement;
     closeButtonRef.current?.focus();
 
@@ -144,10 +145,11 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
 
     const handleKey = (e) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
+
       const focusable = getFocusable();
       if (focusable.length === 0) return;
       const first = focusable[0];
@@ -163,11 +165,13 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
     };
 
     document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("keydown", handleKey);
-      previouslyFocusedRef.current?.focus?.();
-    };
-  }, [open, onClose]);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) return;
+    previouslyFocusedRef.current?.focus?.();
+  }, [open]);
 
   const handlePickPhoto = () => fileInputRef.current?.click();
 
