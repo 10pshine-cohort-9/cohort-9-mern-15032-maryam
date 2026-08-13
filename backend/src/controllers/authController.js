@@ -51,7 +51,7 @@ exports.signup = async (req, res) => {
     });
 
     logger.info(
-      { event: "user_signup", userId: user._id, email: user.email },
+      { event: "user_signup", userId: user._id },
       "New account created",
     );
 
@@ -96,7 +96,7 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
-      logger.warn({ event: "login_failed", email, reason: "invalid_email" }, "Login failed");
+      logger.warn({ event: "login_failed", reason: "invalid_email" }, "Login failed");
       return res.status(400).json({
         message: "Invalid Email",
       });
@@ -124,7 +124,7 @@ exports.login = async (req, res) => {
       },
     );
 
-    logger.info({ event: "user_login", userId: user._id, email: user.email }, "User logged in");
+    logger.info({ event: "user_login", userId: user._id }, "User logged in");
 
     res.json({
       success: true,

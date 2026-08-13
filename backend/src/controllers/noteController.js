@@ -13,6 +13,40 @@ function normalizeCategory(str) {
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
+function categoryGroupStage() {
+  return {
+    $group: {
+      _id: {
+        $reduce: {
+          input: { $split: [{ $trim: { input: { $toLower: "$category" } } }, " "] },
+          initialValue: "",
+          in: {
+            $cond: [
+              { $eq: ["$$this", ""] },
+              "$$value",
+              {
+                $cond: [
+                  { $eq: ["$$value", ""] },
+                  "$$this",
+                  { $concat: ["$$value", " ", "$$this"] },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      count: { $sum: 1 },
+    },
+  };
+}
+
+function categoryMatchRegex(value) {
+  const words = normalizeCategory(value)
+    .split(" ")
+    .filter(Boolean)
+    .map(escapeRegex);
+  return new RegExp(`^${words.join("\\s+")}$`, "i");
+}
 
 exports.getNotes = async (req, res) => {
   try {
@@ -34,7 +68,7 @@ exports.getNotes = async (req, res) => {
       if (filter === "favorites") {
         query.isFavorite = true;
       } else if (filter !== "all") {
-        query.category = { $regex: `^${escapeRegex(filter.trim())}$`, $options: "i" };
+        query.category = categoryMatchRegex(filter);
       }
     }
 
@@ -89,7 +123,7 @@ exports.getStats = async (req, res) => {
   try {
     const ownerId = req.user.id;
 
-    const [totalNotes, favorites, trashItems, categories] = await Promise.all([
+    const [totalNotes, favorites, trashItems, categoryGroups] = await Promise.all([
       Note.countDocuments({ owner: ownerId, isDeleted: false }),
       Note.countDocuments({
         owner: ownerId,
@@ -97,7 +131,15 @@ exports.getStats = async (req, res) => {
         isFavorite: true,
       }),
       Note.countDocuments({ owner: ownerId, isDeleted: true }),
-      Note.distinct("category", { owner: ownerId, isDeleted: false }),
+      Note.aggregate([
+        {
+          $match: {
+            owner: new mongoose.Types.ObjectId(ownerId),
+            isDeleted: false,
+          },
+        },
+        categoryGroupStage(),
+      ]),
     ]);
 
     res.json({
@@ -105,7 +147,7 @@ exports.getStats = async (req, res) => {
       stats: {
         totalNotes,
         favorites,
-        categories: categories.length,
+        categories: categoryGroups.length,
         trashItems,
       },
     });
@@ -127,12 +169,7 @@ exports.getCategories = async (req, res) => {
           isDeleted: false,
         },
       },
-      {
-        $group: {
-          _id: { $trim: { input: { $toLower: "$category" } } },
-          count: { $sum: 1 },
-        },
-      },
+      categoryGroupStage(),
       { $sort: { _id: 1 } },
     ]);
 

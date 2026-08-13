@@ -60,6 +60,9 @@ function resizeImageFile(file, maxSize = 300, quality = 0.82) {
 export default function ProfilePanel({ open, onClose, onUpdate }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const panelRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const previouslyFocusedRef = useRef(null);
 
   const [profile, setProfile] = useState(getStoredUser());
   const [loading, setLoading] = useState(false);
@@ -124,11 +127,46 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
 
   useEffect(() => {
     if (!open) return;
+
+    // Remember what had focus before the panel opened, so we can give
+    // it back when the panel closes — standard dialog accessibility.
+    previouslyFocusedRef.current = document.activeElement;
+    closeButtonRef.current?.focus();
+
+    const getFocusable = () =>
+      panelRef.current
+        ? Array.from(
+            panelRef.current.querySelectorAll(
+              'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+            )
+          )
+        : [];
+
     const handleKey = (e) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      previouslyFocusedRef.current?.focus?.();
+    };
   }, [open, onClose]);
 
   const handlePickPhoto = () => fileInputRef.current?.click();
@@ -183,6 +221,7 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-slate-900/30" onClick={onClose} />
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-panel-title"
@@ -198,6 +237,7 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
             </p>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close"
             className="text-slate-400 hover:text-slate-600"

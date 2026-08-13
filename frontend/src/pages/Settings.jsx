@@ -31,9 +31,9 @@ function getStoredUser() {
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/dashboard" },
-  { key: "all", label: "All Notes", icon: FileText, path: "/dashboard" },
-  { key: "favorites", label: "Favorites", icon: Star, path: "/dashboard" },
-  { key: "trash", label: "Trash", icon: Trash2, path: "/dashboard" },
+  { key: "all", label: "All Notes", icon: FileText, path: "/dashboard?filter=all" },
+  { key: "favorites", label: "Favorites", icon: Star, path: "/dashboard?filter=favorites" },
+  { key: "trash", label: "Trash", icon: Trash2, path: "/dashboard?filter=trash" },
   { key: "categories", label: "Categories", icon: Folder, path: "/categories" },
   { key: "tags", label: "Tags", icon: Tag, path: null },
 ];

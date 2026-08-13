@@ -102,10 +102,13 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
   const searchParam = searchParams.get("search");
+  const filterUrlParam = searchParams.get("filter");
 
   const [user, setUser] = useState(getStoredUser);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeNav, setActiveNav] = useState("dashboard");
+  const [activeNav, setActiveNav] = useState(() =>
+    ["all", "favorites", "trash"].includes(filterUrlParam) ? filterUrlParam : "dashboard"
+  );
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
