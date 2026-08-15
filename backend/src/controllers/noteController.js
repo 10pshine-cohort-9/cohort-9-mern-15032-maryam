@@ -459,3 +459,12 @@ exports.deleteNote = async (req, res) => {
     });
   }
 };
+
+if (process.env.NODE_ENV === "test") {
+  module.exports._internal = {
+    escapeRegex,
+    normalizeCategory,
+    categoryMatchRegex,
+    categoryGroupStage,
+  };
+}
