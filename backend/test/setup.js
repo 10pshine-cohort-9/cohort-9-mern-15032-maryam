@@ -10,20 +10,34 @@ exports.mochaHooks = {
   async beforeAll() {
     this.timeout(30000);
     mongoServer = await MongoMemoryServer.create();
-    await mongoose.connect(mongoServer.getUri());
+    try {
+      await mongoose.connect(mongoServer.getUri());
+    } catch (err) {
+      await mongoServer.stop();
+      throw err;
+    }
   },
 
   async afterEach() {
     const collections = mongoose.connection.collections;
     for (const key in collections) {
-      await collections[key].deleteMany({});
+      try {
+        await collections[key].deleteMany({});
+      } catch (err) {
+        console.error(`Failed to clear collection "${key}":`, err);
+      }
     }
   },
 
   async afterAll() {
     this.timeout(10000);
-    await mongoose.connection.dropDatabase();
-    await mongoose.connection.close();
-    await mongoServer.stop();
+    try {
+      await mongoose.connection.dropDatabase();
+    } catch (err) {
+      console.error("Failed to drop test database:", err);
+    } finally {
+      await mongoose.connection.close();
+      await mongoServer.stop();
+    }
   },
 };
