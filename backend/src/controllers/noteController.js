@@ -1,7 +1,51 @@
+const mongoose = require("mongoose");
 const Note = require("../models/Note");
+const logger = require("../utils/logger");
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeCategory(str) {
+  return str
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+function categoryGroupStage() {
+  return {
+    $group: {
+      _id: {
+        $reduce: {
+          input: { $split: [{ $trim: { input: { $toLower: "$category" } } }, " "] },
+          initialValue: "",
+          in: {
+            $cond: [
+              { $eq: ["$$this", ""] },
+              "$$value",
+              {
+                $cond: [
+                  { $eq: ["$$value", ""] },
+                  "$$this",
+                  { $concat: ["$$value", " ", "$$this"] },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      count: { $sum: 1 },
+    },
+  };
+}
+
+function categoryMatchRegex(value) {
+  const words = normalizeCategory(value)
+    .split(" ")
+    .filter(Boolean)
+    .map(escapeRegex);
+  return new RegExp(`^${words.join("\\s+")}$`, "i");
 }
 
 exports.getNotes = async (req, res) => {
@@ -24,7 +68,7 @@ exports.getNotes = async (req, res) => {
       if (filter === "favorites") {
         query.isFavorite = true;
       } else if (filter !== "all") {
-        query.category = filter;
+        query.category = categoryMatchRegex(filter);
       }
     }
 
@@ -79,7 +123,7 @@ exports.getStats = async (req, res) => {
   try {
     const ownerId = req.user.id;
 
-    const [totalNotes, favorites, trashItems, categories] = await Promise.all([
+    const [totalNotes, favorites, trashItems, categoryGroups] = await Promise.all([
       Note.countDocuments({ owner: ownerId, isDeleted: false }),
       Note.countDocuments({
         owner: ownerId,
@@ -87,7 +131,15 @@ exports.getStats = async (req, res) => {
         isFavorite: true,
       }),
       Note.countDocuments({ owner: ownerId, isDeleted: true }),
-      Note.distinct("category", { owner: ownerId, isDeleted: false }),
+      Note.aggregate([
+        {
+          $match: {
+            owner: new mongoose.Types.ObjectId(ownerId),
+            isDeleted: false,
+          },
+        },
+        categoryGroupStage(),
+      ]),
     ]);
 
     res.json({
@@ -95,7 +147,7 @@ exports.getStats = async (req, res) => {
       stats: {
         totalNotes,
         favorites,
-        categories: categories.length,
+        categories: categoryGroups.length,
         trashItems,
       },
     });
@@ -110,14 +162,23 @@ exports.getStats = async (req, res) => {
 
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Note.distinct("category", {
-      owner: req.user.id,
-      isDeleted: false,
-    });
+    const categories = await Note.aggregate([
+      {
+        $match: {
+          owner: new mongoose.Types.ObjectId(req.user.id),
+          isDeleted: false,
+        },
+      },
+      categoryGroupStage(),
+      { $sort: { _id: 1 } },
+    ]);
 
     res.json({
       success: true,
-      categories,
+      categories: categories.map((c) => ({
+        name: normalizeCategory(c._id),
+        count: c.count,
+      })),
     });
   } catch (err) {
     console.error(err);
@@ -184,9 +245,14 @@ exports.createNote = async (req, res) => {
     const note = await Note.create({
       title: title.trim(),
       content: content || "",
-      category: category && category.trim() ? category.trim() : "General",
+      category: category && category.trim() ? normalizeCategory(category) : "General",
       owner: req.user.id,
     });
+
+    logger.info(
+      { event: "note_created", userId: req.user.id, noteId: note._id },
+      "Note created",
+    );
 
     res.status(201).json({
       success: true,
@@ -251,10 +317,15 @@ exports.updateNote = async (req, res) => {
           message: "Category must be text.",
         });
       }
-      note.category = category.trim() || "General";
+      note.category = category.trim() ? normalizeCategory(category) : "General";
     }
 
     await note.save();
+
+    logger.info(
+      { event: "note_updated", userId: req.user.id, noteId: note._id },
+      "Note updated",
+    );
 
     res.json({
       success: true,
@@ -305,7 +376,7 @@ exports.trashNote = async (req, res) => {
     const note = await Note.findOneAndUpdate(
       { _id: req.params.id, owner: req.user.id },
       { isDeleted: true, deletedAt: new Date() },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!note) {
@@ -314,6 +385,11 @@ exports.trashNote = async (req, res) => {
         message: "Note not found",
       });
     }
+
+    logger.info(
+      { event: "note_trashed", userId: req.user.id, noteId: note._id },
+      "Note moved to trash",
+    );
 
     res.json({ success: true, message: "Note moved to trash", note });
   } catch (err) {
@@ -330,7 +406,7 @@ exports.restoreNote = async (req, res) => {
     const note = await Note.findOneAndUpdate(
       { _id: req.params.id, owner: req.user.id },
       { isDeleted: false, deletedAt: null },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!note) {
@@ -339,6 +415,11 @@ exports.restoreNote = async (req, res) => {
         message: "Note not found",
       });
     }
+
+    logger.info(
+      { event: "note_restored", userId: req.user.id, noteId: note._id },
+      "Note restored",
+    );
 
     res.json({ success: true, message: "Note restored", note });
   } catch (err) {
@@ -363,6 +444,11 @@ exports.deleteNote = async (req, res) => {
         message: "Note not found",
       });
     }
+
+    logger.info(
+      { event: "note_deleted", userId: req.user.id, noteId: note._id },
+      "Note permanently deleted",
+    );
 
     res.json({ success: true, message: "Note permanently deleted" });
   } catch (err) {

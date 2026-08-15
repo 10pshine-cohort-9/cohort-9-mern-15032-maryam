@@ -3,6 +3,8 @@ import NotesAuthPage from "./components/auth/NotesAuthPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import NoteEditor from "./pages/NoteEditor";
+import Categories from "./pages/Categories";
+import Settings from "./pages/Settings";
 
 function App() {
   return (
@@ -30,6 +32,22 @@ function App() {
           element={
             <ProtectedRoute>
               <NoteEditor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <ProtectedRoute>
+              <Categories />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           }
         />
