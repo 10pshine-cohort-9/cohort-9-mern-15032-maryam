@@ -62,6 +62,10 @@ describe("Dashboard", () => {
     jest.useRealTimers();
   });
 
+  afterEach(() => {
+  localStorage.clear();
+});
+
   describe("auth guard", () => {
     it("redirects to '/' when there is no auth token", async () => {
       getAuthToken.mockReturnValue(null);
@@ -150,7 +154,6 @@ describe("Dashboard", () => {
       render(<Dashboard />);
 
       expect(await screen.findByText("Account")).toBeInTheDocument();
-      localStorage.clear();
     });
   });
 

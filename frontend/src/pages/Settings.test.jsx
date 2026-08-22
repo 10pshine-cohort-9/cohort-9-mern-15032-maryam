@@ -15,6 +15,7 @@ describe("Settings", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    document.documentElement.classList.remove("dark");
     mockNavigate.mockClear();
   });
 
@@ -68,7 +69,7 @@ describe("Settings", () => {
       expect(
         await screen.findByText("Tags view is coming soon."),
       ).toBeInTheDocument();
-      expect(mockNavigate).not.toHaveBeenCalledWith(null);
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
   });
 

@@ -13,7 +13,11 @@ jest.mock("../components/profile/ProfilePanel", () => (props) => (
     {props.open && (
       <>
         <button onClick={props.onClose}>Close profile</button>
-        <button onClick={() => props.onUpdate?.({ name: "Maryam", avatar: "" })}>Update profile</button>
+        <button
+          onClick={() => props.onUpdate?.({ name: "Maryam", avatar: "" })}
+        >
+          Update profile
+        </button>
       </>
     )}
   </div>
@@ -57,7 +61,7 @@ describe("Categories", () => {
 
   describe("loading and data states", () => {
     it("shows a loading skeleton while categories are being fetched", () => {
-      apiRequest.mockReturnValue(new Promise(() => {})); 
+      apiRequest.mockReturnValue(new Promise(() => {}));
 
       render(<Categories />);
 
@@ -165,9 +169,7 @@ describe("Categories", () => {
 
       await user.click(await screen.findByText("Work"));
 
-      expect(mockNavigate).toHaveBeenCalledWith(
-        "/dashboard?category=Work",
-      );
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard?category=Work");
     });
 
     it("navigates to /notes/new when clicking 'New Note'", async () => {
@@ -185,9 +187,7 @@ describe("Categories", () => {
       const user = userEvent.setup({ delay: null });
       render(<Categories />);
 
-      await user.click(
-        await screen.findByText("Create your first note"),
-      );
+      await user.click(await screen.findByText("Create your first note"));
 
       expect(mockNavigate).toHaveBeenCalledWith("/notes/new");
     });
@@ -220,146 +220,165 @@ describe("Categories", () => {
       ).toBeInTheDocument();
     });
 
-
-  it("loads user from localStorage and renders avatar", async () => {
-    localStorage.setItem("user", JSON.stringify({ name: "Maryam", avatar: "https://example.com/avatar.png" }));
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    await screen.findByText("Maryam");
-    expect(screen.getByAltText("")).toHaveAttribute("src", "https://example.com/avatar.png");
-  });
-
-  it("falls back safely when stored user JSON is invalid", async () => {
-    localStorage.setItem("user", "{invalid-json");
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    expect(await screen.findByText("Account")).toBeInTheDocument();
-  });
-
-  it("loads user from sessionStorage when localStorage is empty", async () => {
-    sessionStorage.setItem("user", JSON.stringify({ name: "Maryam" }));
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    expect(await screen.findByText("Maryam")).toBeInTheDocument();
-  });
-
-  it("renders user initials when avatar is unavailable", async () => {
-    localStorage.setItem("user", JSON.stringify({ name: "Maryam" }));
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    expect(await screen.findByText("M")).toBeInTheDocument();
-  });
-
-  it("navigates through all sidebar routes", async () => {
-    const user = userEvent.setup();
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    await screen.findByText("No categories yet — categories appear here once you add notes.");
-
-    await user.click(screen.getByRole("button", { name: "Dashboard" }));
-    await user.click(screen.getByRole("button", { name: "All Notes" }));
-    await user.click(screen.getByRole("button", { name: "Favorites" }));
-    await user.click(screen.getByRole("button", { name: "Trash" }));
-    await user.click(screen.getByRole("button", { name: "Categories" }));
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard?filter=all");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard?filter=favorites");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard?filter=trash");
-    expect(mockNavigate).toHaveBeenCalledWith("/categories");
-    expect(mockNavigate).toHaveBeenCalledWith("/settings");
-  });
-
-  it("toggles the sidebar", async () => {
-    const user = userEvent.setup();
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    const sidebar = document.querySelector("aside");
-    const toggle = screen.getByRole("button", { name: "Toggle sidebar" });
-    expect(sidebar.className).toContain("w-64");
-    await user.click(toggle);
-    expect(sidebar.className).toContain("w-0");
-    await user.click(toggle);
-    expect(sidebar.className).toContain("w-64");
-  });
-
-  it("opens and closes profile panel from sidebar", async () => {
-    const user = userEvent.setup();
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    const panel = screen.getByTestId("profile-panel");
-    expect(panel).toHaveAttribute("data-open", "false");
-    await user.click(screen.getByRole("button", { name: "Profile" }));
-    expect(panel).toHaveAttribute("data-open", "true");
-    await user.click(screen.getByRole("button", { name: "Close profile" }));
-    expect(panel).toHaveAttribute("data-open", "false");
-  });
-
-  it("opens profile panel from account button and updates user", async () => {
-    const user = userEvent.setup();
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    await user.click(screen.getByText("Account"));
-    expect(screen.getByTestId("profile-panel")).toHaveAttribute("data-open", "true");
-    await user.click(screen.getByRole("button", { name: "Update profile" }));
-    expect(screen.getByText("Maryam")).toBeInTheDocument();
-  });
-
-  it("shows and dismisses notification notice", async () => {
-    const user = userEvent.setup();
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    await user.click(screen.getByRole("button", { name: "Notifications" }));
-    expect(await screen.findByText("No new notifications.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Dismiss" }));
-    expect(screen.queryByText("No new notifications.")).not.toBeInTheDocument();
-  });
-
-  it("automatically clears a notice after three seconds", async () => {
-    jest.useFakeTimers();
-    apiRequest.mockResolvedValue({ categories: [] });
-    render(<Categories />);
-    await act(async () => {
-      screen.getByRole("button", { name: "Notifications" }).click();
+    it("loads user from localStorage and renders avatar", async () => {
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          name: "Maryam",
+          avatar: "https://example.com/avatar.png",
+        }),
+      );
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      await screen.findByText("Maryam");
+      expect(screen.getByAltText("")).toHaveAttribute(
+        "src",
+        "https://example.com/avatar.png",
+      );
     });
-    expect(screen.getByText("No new notifications.")).toBeInTheDocument();
-    await act(async () => {
-      jest.advanceTimersByTime(3000);
-    });
-    expect(screen.queryByText("No new notifications.")).not.toBeInTheDocument();
-    jest.useRealTimers();
-  });
 
-  it("keeps the latest notice when an older notice timeout fires", async () => {
+    it("falls back safely when stored user JSON is invalid", async () => {
+      localStorage.setItem("user", "{invalid-json");
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      expect(await screen.findByText("Account")).toBeInTheDocument();
+    });
+
+    it("loads user from sessionStorage when localStorage is empty", async () => {
+      sessionStorage.setItem("user", JSON.stringify({ name: "Maryam" }));
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      expect(await screen.findByText("Maryam")).toBeInTheDocument();
+    });
+
+    it("renders user initials when avatar is unavailable", async () => {
+      localStorage.setItem("user", JSON.stringify({ name: "Maryam" }));
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      expect(await screen.findByText("M")).toBeInTheDocument();
+    });
+
+    it("navigates through all sidebar routes", async () => {
+      const user = userEvent.setup();
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      await screen.findByText(
+        "No categories yet — categories appear here once you add notes.",
+      );
+
+      await user.click(screen.getByRole("button", { name: "Dashboard" }));
+      await user.click(screen.getByRole("button", { name: "All Notes" }));
+      await user.click(screen.getByRole("button", { name: "Favorites" }));
+      await user.click(screen.getByRole("button", { name: "Trash" }));
+      await user.click(screen.getByRole("button", { name: "Categories" }));
+      await user.click(screen.getByRole("button", { name: "Settings" }));
+
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard?filter=all");
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard?filter=favorites");
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard?filter=trash");
+      expect(mockNavigate).toHaveBeenCalledWith("/categories");
+      expect(mockNavigate).toHaveBeenCalledWith("/settings");
+    });
+
+    it("toggles the sidebar", async () => {
+      const user = userEvent.setup();
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      const sidebar = document.querySelector("aside");
+      const toggle = screen.getByRole("button", { name: "Toggle sidebar" });
+      expect(sidebar.className).toContain("w-64");
+      await user.click(toggle);
+      expect(sidebar.className).toContain("w-0");
+      await user.click(toggle);
+      expect(sidebar.className).toContain("w-64");
+    });
+
+    it("opens and closes profile panel from sidebar", async () => {
+      const user = userEvent.setup();
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      const panel = screen.getByTestId("profile-panel");
+      expect(panel).toHaveAttribute("data-open", "false");
+      await user.click(screen.getByRole("button", { name: "Profile" }));
+      expect(panel).toHaveAttribute("data-open", "true");
+      await user.click(screen.getByRole("button", { name: "Close profile" }));
+      expect(panel).toHaveAttribute("data-open", "false");
+    });
+
+    it("opens profile panel from account button and updates user", async () => {
+      const user = userEvent.setup();
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      await user.click(screen.getByText("Account"));
+      expect(screen.getByTestId("profile-panel")).toHaveAttribute(
+        "data-open",
+        "true",
+      );
+      await user.click(screen.getByRole("button", { name: "Update profile" }));
+      expect(screen.getByText("Maryam")).toBeInTheDocument();
+    });
+
+    it("shows and dismisses notification notice", async () => {
+      const user = userEvent.setup();
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      await user.click(screen.getByRole("button", { name: "Notifications" }));
+      expect(
+        await screen.findByText("No new notifications."),
+      ).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Dismiss" }));
+      expect(
+        screen.queryByText("No new notifications."),
+      ).not.toBeInTheDocument();
+    });
+
+    it("automatically clears a notice after three seconds", async () => {
       jest.useFakeTimers();
+      apiRequest.mockResolvedValue({ categories: [] });
+      render(<Categories />);
+      await act(async () => {
+        screen.getByRole("button", { name: "Notifications" }).click();
+      });
+      expect(screen.getByText("No new notifications.")).toBeInTheDocument();
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(
+        screen.queryByText("No new notifications."),
+      ).not.toBeInTheDocument();
+      jest.useRealTimers();
+    });
 
+    it("keeps the latest notice when an older notice timeout fires", async () => {
+      jest.useFakeTimers();
+      apiRequest.mockResolvedValue({ categories: [] });
       render(<Categories />);
 
       await act(async () => {
-        screen.getByRole("button", {
-          name: "Tags",
-        }).click();
+        screen
+          .getByRole("button", {
+            name: "Tags",
+          })
+          .click();
       });
 
-      expect(
-        screen.getByText("Tags view is coming soon.")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Tags view is coming soon.")).toBeInTheDocument();
 
       await act(async () => {
         jest.advanceTimersByTime(2999);
       });
 
       await act(async () => {
-        screen.getByRole("button", {
-          name: /enable backup/i,
-        }).click();
+        screen
+          .getByRole("button", {
+            name: /enable backup/i,
+          })
+          .click();
       });
 
       expect(
-        screen.getByText(
-          "Cloud backup isn't implemented yet."
-        )
+        screen.getByText("Cloud backup isn't implemented yet."),
       ).toBeInTheDocument();
 
       await act(async () => {
@@ -367,20 +386,22 @@ describe("Categories", () => {
       });
 
       expect(
-        screen.getByText(
-          "Cloud backup isn't implemented yet."
-        )
+        screen.getByText("Cloud backup isn't implemented yet."),
       ).toBeInTheDocument();
 
       jest.useRealTimers();
     });
 
-  it("encodes category names when navigating", async () => {
-    const user = userEvent.setup();
-    apiRequest.mockResolvedValue({ categories: [{ name: "Work & Personal", count: 3 }] });
-    render(<Categories />);
-    await user.click(await screen.findByText("Work & Personal"));
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard?category=Work%20%26%20Personal");
-  });
+    it("encodes category names when navigating", async () => {
+      const user = userEvent.setup();
+      apiRequest.mockResolvedValue({
+        categories: [{ name: "Work & Personal", count: 3 }],
+      });
+      render(<Categories />);
+      await user.click(await screen.findByText("Work & Personal"));
+      expect(mockNavigate).toHaveBeenCalledWith(
+        "/dashboard?category=Work%20%26%20Personal",
+      );
+    });
   });
 });

@@ -555,13 +555,11 @@ describe("ProfilePanel", () => {
     it("handles a pending avatar upload and completes after it resolves", async () => {
       let resolveUpload;
 
-      apiRequest
-        .mockResolvedValueOnce({ user: storedUser })
-        .mockReturnValueOnce(
-          new Promise((resolve) => {
-            resolveUpload = resolve;
-          }),
-        );
+      apiRequest.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        }),
+      );
 
       const user = userEvent.setup({ delay: null });
 
@@ -582,6 +580,10 @@ describe("ProfilePanel", () => {
           }),
         }),
       );
+
+      expect(
+        screen.getByRole("button", { name: "Change profile photo" }),
+      ).toBeDisabled();
 
       await act(async () => {
         resolveUpload({
