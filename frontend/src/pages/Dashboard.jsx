@@ -73,7 +73,7 @@ function timeAgo(dateString) {
 function stripHtml(html) {
   if (!html) return "";
   return html
-    .replace(/<[^>]{0,5000}>/g, " ")
+    .replace(/<[^>]*>/g, " ")
     .replaceAll("&nbsp;", " ")
     .replace(/\s+/g, " ")
     .trim();

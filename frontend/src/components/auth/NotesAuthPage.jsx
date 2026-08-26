@@ -38,24 +38,7 @@ const EMPTY_ALERT = {
 function isValidEmail(value) {
   const email = value.trim();
 
-  if (!email || /\s/.test(email)) {
-    return false;
-  }
-
-  const atIndex = email.indexOf("@");
-
-  if (
-    atIndex <= 0 ||
-    atIndex !== email.lastIndexOf("@") ||
-    atIndex === email.length - 1
-  ) {
-    return false;
-  }
-
-  const domain = email.slice(atIndex + 1);
-  const dotIndex = domain.indexOf(".");
-
-  return dotIndex > 0 && dotIndex < domain.length - 1;
+  return /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email);
 }
 
 function validateSignupForm(form) {
