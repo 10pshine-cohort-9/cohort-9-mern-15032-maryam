@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../utils/apiRequest";
-import { X, User as UserIcon, Mail, Clock, Camera, LogOut, Loader2 } from "lucide-react";
+import { applyTheme } from "../../utils/theme";
+import {
+  X,
+  User as UserIcon,
+  Mail,
+  Clock,
+  Camera,
+  LogOut,
+  Loader2,
+} from "lucide-react";
 
 function getStoredUser() {
   const raw = localStorage.getItem("user") || sessionStorage.getItem("user");
+
   try {
     return raw ? JSON.parse(raw) : null;
   } catch {
@@ -22,6 +32,7 @@ function saveStoredUser(user) {
 
 function formatJoinDate(dateLike) {
   if (!dateLike) return "—";
+
   return new Date(dateLike).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -32,12 +43,18 @@ function formatJoinDate(dateLike) {
 function resizeImageFile(file, maxSize = 300, quality = 0.82) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onerror = () => reject(new Error("Couldn't read that file."));
+
     reader.onload = () => {
       const img = new Image();
-      img.onerror = () => reject(new Error("That doesn't look like a valid image."));
+
+      img.onerror = () =>
+        reject(new Error("That doesn't look like a valid image."));
+
       img.onload = () => {
         let { width, height } = img;
+
         if (width > height && width > maxSize) {
           height = Math.round((height * maxSize) / width);
           width = maxSize;
@@ -45,20 +62,110 @@ function resizeImageFile(file, maxSize = 300, quality = 0.82) {
           width = Math.round((width * maxSize) / height);
           height = maxSize;
         }
+
         const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
-        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+
+        canvas
+          .getContext("2d")
+          .drawImage(img, 0, 0, width, height);
+
         resolve(canvas.toDataURL("image/jpeg", quality));
       };
+
       img.src = reader.result;
     };
+
     reader.readAsDataURL(file);
   });
 }
 
+function EditableProfileRow({
+  icon: Icon,
+  label,
+  value,
+  field,
+  editingField,
+  editValue,
+  setEditValue,
+  startEdit,
+  saveEdit,
+  cancelEdit,
+  savingField,
+  type = "text",
+}) {
+  return (
+    <div className="flex items-center gap-3 py-3 border-b border-slate-100">
+      <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+        <Icon
+          className="w-4.5 h-4.5 text-indigo-600"
+          size={18}
+        />
+      </div>
+
+      {editingField === field ? (
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          <input
+            autoFocus
+            type={type}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                saveEdit();
+              }
+
+              if (e.key === "Escape") {
+                cancelEdit();
+              }
+            }}
+            className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400"
+          />
+
+          <button
+            type="button"
+            onClick={saveEdit}
+            disabled={savingField}
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
+          >
+            Save
+          </button>
+
+          <button
+            type="button"
+            onClick={cancelEdit}
+            className="text-xs text-slate-400 hover:text-slate-600"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-slate-400">{label}</p>
+
+            <p className="text-sm font-medium text-slate-800 truncate">
+              {value || "—"}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => startEdit(field, value)}
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-700 shrink-0"
+          >
+            Edit
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ProfilePanel({ open, onClose, onUpdate }) {
   const navigate = useNavigate();
+
   const fileInputRef = useRef(null);
   const panelRef = useRef(null);
   const closeButtonRef = useRef(null);
@@ -85,16 +192,25 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
 
   const saveEdit = async () => {
     if (!editValue.trim()) {
-      setError(editingField === "email" ? "Email is required." : "Name is required.");
+      setError(
+        editingField === "email"
+          ? "Email is required."
+          : "Name is required."
+      );
       return;
     }
+
     setSavingField(true);
     setError("");
+
     try {
       const data = await apiRequest("/auth/profile", {
         method: "PUT",
-        body: JSON.stringify({ [editingField]: editValue.trim() }),
+        body: JSON.stringify({
+          [editingField]: editValue.trim(),
+        }),
       });
+
       setProfile(data.user);
       saveStoredUser(data.user);
       onUpdate?.(data.user);
@@ -108,18 +224,31 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
 
   useEffect(() => {
     if (!open) return;
+
     let cancelled = false;
+
     setLoading(true);
     setError("");
+
     apiRequest("/auth/me")
       .then((data) => {
         if (cancelled) return;
+
         setProfile(data.user);
         saveStoredUser(data.user);
         onUpdate?.(data.user);
       })
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false));
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
     return () => {
       cancelled = true;
     };
@@ -148,10 +277,13 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
         onCloseRef.current();
         return;
       }
+
       if (e.key !== "Tab") return;
 
       const focusable = getFocusable();
+
       if (focusable.length === 0) return;
+
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
 
@@ -165,19 +297,27 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
     };
 
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open]);
 
   useEffect(() => {
     if (open) return;
+
     previouslyFocusedRef.current?.focus?.();
   }, [open]);
 
-  const handlePickPhoto = () => fileInputRef.current?.click();
+  const handlePickPhoto = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
-    e.target.value = ""; 
+
+    e.target.value = "";
+
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -187,12 +327,17 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
 
     setUploading(true);
     setError("");
+
     try {
       const resized = await resizeImageFile(file);
+
       const data = await apiRequest("/auth/avatar", {
         method: "PUT",
-        body: JSON.stringify({ avatar: resized }),
+        body: JSON.stringify({
+          avatar: resized,
+        }),
       });
+
       setProfile(data.user);
       saveStoredUser(data.user);
       onUpdate?.(data.user);
@@ -208,6 +353,7 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
     sessionStorage.removeItem("token");
     localStorage.removeItem("user");
     sessionStorage.removeItem("user");
+    document.documentElement.classList.remove("dark");
     navigate("/");
   };
 
@@ -223,7 +369,13 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/30" onClick={onClose} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-slate-900/30"
+        aria-label="Close profile panel"
+        onClick={onClose}
+      />
+
       <div
         ref={panelRef}
         role="dialog"
@@ -233,14 +385,20 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
       >
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-slate-100">
           <div>
-            <h2 id="profile-panel-title" className="text-xl font-bold text-slate-900">
+            <h2
+              id="profile-panel-title"
+              className="text-xl font-bold text-slate-900"
+            >
               My Profile
             </h2>
+
             <p className="text-sm text-slate-500 mt-0.5">
               Manage your account information.
             </p>
           </div>
+
           <button
+            type="button"
             ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close"
@@ -261,12 +419,18 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
             <div className="relative">
               <div className="w-28 h-28 rounded-full bg-indigo-600 text-white text-3xl font-semibold flex items-center justify-center overflow-hidden">
                 {profile?.avatar ? (
-                  <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={profile.avatar}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   initials
                 )}
               </div>
+
               <button
+                type="button"
                 onClick={handlePickPhoto}
                 disabled={uploading}
                 aria-label="Change profile photo"
@@ -278,6 +442,7 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
                   <Camera className="w-4 h-4" />
                 )}
               </button>
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -286,8 +451,11 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
                 className="hidden"
               />
             </div>
+
             <p className="text-xs text-slate-400 mt-3">
-              {profile?.avatar ? "Click the camera icon to change your photo" : "Add a photo, or keep your initials"}
+              {profile?.avatar
+                ? "Click the camera icon to change your photo"
+                : "Add a photo, or keep your initials"}
             </p>
           </div>
 
@@ -298,108 +466,56 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-14 rounded-lg bg-slate-100 animate-pulse" />
+                <div
+                  key={i}
+                  className="h-14 rounded-lg bg-slate-100 animate-pulse"
+                />
               ))}
             </div>
           ) : (
             <div className="space-y-1">
-              <div className="flex items-center gap-3 py-3 border-b border-slate-100">
-                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                  <UserIcon className="w-4.5 h-4.5 text-indigo-600" size={18} />
-                </div>
-                {editingField === "name" ? (
-                  <div className="flex-1 flex items-center gap-2 min-w-0">
-                    <input
-                      autoFocus
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEdit();
-                        if (e.key === "Escape") cancelEdit();
-                      }}
-                      className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400"
-                    />
-                    <button
-                      onClick={saveEdit}
-                      disabled={savingField}
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                    <button onClick={cancelEdit} className="text-xs text-slate-400 hover:text-slate-600">
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-slate-400">Full Name</p>
-                      <p className="text-sm font-medium text-slate-800 truncate">
-                        {profile?.name || "—"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => startEdit("name", profile?.name)}
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-700 shrink-0"
-                    >
-                      Edit
-                    </button>
-                  </>
-                )}
-              </div>
+              <EditableProfileRow
+                icon={UserIcon}
+                label="Full Name"
+                value={profile?.name}
+                field="name"
+                editingField={editingField}
+                editValue={editValue}
+                setEditValue={setEditValue}
+                startEdit={startEdit}
+                saveEdit={saveEdit}
+                cancelEdit={cancelEdit}
+                savingField={savingField}
+              />
 
-              <div className="flex items-center gap-3 py-3 border-b border-slate-100">
-                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                  <Mail className="w-4.5 h-4.5 text-indigo-600" size={18} />
-                </div>
-                {editingField === "email" ? (
-                  <div className="flex-1 flex items-center gap-2 min-w-0">
-                    <input
-                      autoFocus
-                      type="email"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEdit();
-                        if (e.key === "Escape") cancelEdit();
-                      }}
-                      className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400"
-                    />
-                    <button
-                      onClick={saveEdit}
-                      disabled={savingField}
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                    <button onClick={cancelEdit} className="text-xs text-slate-400 hover:text-slate-600">
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-slate-400">Email Address</p>
-                      <p className="text-sm font-medium text-slate-800 truncate">
-                        {profile?.email || "—"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => startEdit("email", profile?.email)}
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-700 shrink-0"
-                    >
-                      Edit
-                    </button>
-                  </>
-                )}
-              </div>
+              <EditableProfileRow
+                icon={Mail}
+                label="Email Address"
+                value={profile?.email}
+                field="email"
+                editingField={editingField}
+                editValue={editValue}
+                setEditValue={setEditValue}
+                startEdit={startEdit}
+                saveEdit={saveEdit}
+                cancelEdit={cancelEdit}
+                savingField={savingField}
+                type="email"
+              />
 
               <div className="flex items-center gap-3 py-3">
                 <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                  <Clock className="w-4.5 h-4.5 text-indigo-600" size={18} />
+                  <Clock
+                    className="w-4.5 h-4.5 text-indigo-600"
+                    size={18}
+                  />
                 </div>
+
                 <div className="min-w-0">
-                  <p className="text-xs text-slate-400">Member Since</p>
+                  <p className="text-xs text-slate-400">
+                    Member Since
+                  </p>
+
                   <p className="text-sm font-medium text-slate-800">
                     {formatJoinDate(profile?.createdAt)}
                   </p>
@@ -411,6 +527,7 @@ export default function ProfilePanel({ open, onClose, onUpdate }) {
 
         <div className="px-6 pb-6 pt-2">
           <button
+            type="button"
             onClick={logout}
             className="w-full flex items-center justify-center gap-2 bg-rose-50 text-rose-600 text-sm font-medium py-3 rounded-lg hover:bg-rose-100"
           >

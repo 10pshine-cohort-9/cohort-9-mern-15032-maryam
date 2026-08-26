@@ -73,8 +73,8 @@ function timeAgo(dateString) {
 function stripHtml(html) {
   if (!html) return "";
   return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
+    .replace(/<[^>]{0,5000}>/g, " ")
+    .replaceAll("&nbsp;", " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -107,7 +107,9 @@ export default function Dashboard() {
   const [user, setUser] = useState(getStoredUser);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeNav, setActiveNav] = useState(() =>
-    ["all", "favorites", "trash"].includes(filterUrlParam) ? filterUrlParam : "dashboard"
+    ["all", "favorites", "trash"].includes(filterUrlParam)
+      ? filterUrlParam
+      : "dashboard",
   );
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -184,7 +186,8 @@ export default function Dashboard() {
     }
   }, [navigate]);
 
-  const filterParam = categoryParam || (activeNav === "dashboard" ? "all" : activeNav);
+  const filterParam =
+    categoryParam || (activeNav === "dashboard" ? "all" : activeNav);
 
   const loadStats = useCallback(async () => {
     try {
@@ -334,7 +337,11 @@ export default function Dashboard() {
     let last;
 
     for (let i = 1; i <= total; i++) {
-      if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      if (
+        i === 1 ||
+        i === total ||
+        (i >= current - delta && i <= current + delta)
+      ) {
         range.push(i);
       }
     }
@@ -444,6 +451,7 @@ export default function Dashboard() {
               const isActive = !categoryParam && activeNav === item.key;
               return (
                 <button
+                  type="button"
                   key={item.key}
                   onClick={() => {
                     if (item.key === "categories") {
@@ -470,6 +478,7 @@ export default function Dashboard() {
 
             <div className="!mt-4 pt-4 border-t border-slate-100 space-y-1">
               <button
+                type="button"
                 onClick={() => navigate("/settings")}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
@@ -477,6 +486,7 @@ export default function Dashboard() {
                 Settings
               </button>
               <button
+                type="button"
                 onClick={() => setProfileOpen(true)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
@@ -497,7 +507,10 @@ export default function Dashboard() {
               Enable cloud backup to keep your notes safe.
             </p>
             <button
-              onClick={() => showNotice("Cloud backup isn't implemented yet.", true)}
+              type="button"
+              onClick={() =>
+                showNotice("Cloud backup isn't implemented yet.", true)
+              }
               className="w-full bg-indigo-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-700"
             >
               Enable Backup
@@ -507,6 +520,7 @@ export default function Dashboard() {
         <div className="flex-1 min-w-0 flex flex-col">
           <header className="h-16 bg-white border-b border-slate-200 flex items-center gap-4 px-6">
             <button
+              type="button"
               onClick={() => setSidebarOpen((s) => !s)}
               className="text-slate-500 hover:text-slate-700"
               aria-label="Toggle sidebar"
@@ -531,6 +545,7 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-4 ml-auto">
               <button
+                type="button"
                 onClick={() => showNotice("No new notifications.", true)}
                 className="relative text-slate-500 hover:text-slate-700"
                 aria-label="Notifications"
@@ -540,12 +555,17 @@ export default function Dashboard() {
               </button>
 
               <button
+                type="button"
                 onClick={() => setProfileOpen(true)}
                 className="flex items-center gap-2"
               >
                 <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center overflow-hidden">
                   {user?.avatar ? (
-                    <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                    <img
+                      src={user.avatar}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     initials
                   )}
@@ -562,6 +582,7 @@ export default function Dashboard() {
               <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-4 py-2.5">
                 {notice}
                 <button
+                  type="button"
                   onClick={() => setNotice("")}
                   className="text-amber-600 font-medium"
                 >
@@ -580,6 +601,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => navigate("/notes/new")}
                 className="flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-indigo-700"
               >
@@ -633,6 +655,7 @@ export default function Dashboard() {
 
                 <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
                   <button
+                    type="button"
                     onClick={() => setView("grid")}
                     className={`p-2 ${view === "grid" ? "bg-indigo-50 text-indigo-600" : "text-slate-400"}`}
                     aria-label="Grid view"
@@ -640,6 +663,7 @@ export default function Dashboard() {
                     <LayoutGrid className="w-4 h-4" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => setView("list")}
                     className={`p-2 ${view === "list" ? "bg-indigo-50 text-indigo-600" : "text-slate-400"}`}
                     aria-label="List view"
@@ -676,6 +700,7 @@ export default function Dashboard() {
                 </p>
                 {!(activeNav === "trash" && !categoryParam) && (
                   <button
+                    type="button"
                     onClick={() => navigate("/notes/new")}
                     className="mt-3 text-indigo-600 text-sm font-medium hover:underline"
                   >
@@ -711,6 +736,7 @@ export default function Dashboard() {
                         </div>
                         {!(activeNav === "trash" && !categoryParam) && (
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleFavorite(note);
@@ -760,6 +786,7 @@ export default function Dashboard() {
                           </span>
                           <div className="relative">
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setOpenMenuId((id) =>
@@ -776,12 +803,19 @@ export default function Dashboard() {
                             {openMenuId === note._id && (
                               <div
                                 role="menu"
+                                tabIndex={-1}
                                 onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    setOpenMenuId(null);
+                                  }
+                                }}
                                 className="absolute right-0 bottom-6 w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10"
                               >
                                 {activeNav === "trash" && !categoryParam ? (
                                   <>
                                     <button
+                                      type="button"
                                       role="menuitem"
                                       onClick={() => {
                                         setOpenMenuId(null);
@@ -792,6 +826,7 @@ export default function Dashboard() {
                                       Restore
                                     </button>
                                     <button
+                                      type="button"
                                       role="menuitem"
                                       onClick={() => {
                                         setOpenMenuId(null);
@@ -804,6 +839,7 @@ export default function Dashboard() {
                                   </>
                                 ) : (
                                   <button
+                                    type="button"
                                     role="menuitem"
                                     onClick={() => {
                                       setOpenMenuId(null);
@@ -829,6 +865,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mt-6">
                 <div className="flex items-center gap-1">
                   <button
+                    type="button"
                     onClick={() => loadNotes(Math.max(pagination.page - 1, 1))}
                     disabled={pagination.page <= 1}
                     className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 disabled:opacity-40"
@@ -836,31 +873,36 @@ export default function Dashboard() {
                     <ChevronLeft className="w-4 h-4" />
                   </button>
 
-                  {getPageWindow(pagination.page, pagination.totalPages).map((item, i) =>
-                    item === "..." ? (
-                      <span
-                        key={`dots-${i}`}
-                        className="w-8 h-8 flex items-center justify-center text-sm text-slate-400"
-                      >
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={item}
-                        onClick={() => loadNotes(item)}
-                        aria-current={pagination.page === item ? "page" : undefined}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
-                          pagination.page === item
-                            ? "bg-indigo-600 text-white"
-                            : "border border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    )
+                  {getPageWindow(pagination.page, pagination.totalPages).map(
+                    (item, i) =>
+                      item === "..." ? (
+                        <span
+                          key={`dots-${i}`}
+                          className="w-8 h-8 flex items-center justify-center text-sm text-slate-400"
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          key={item}
+                          onClick={() => loadNotes(item)}
+                          aria-current={
+                            pagination.page === item ? "page" : undefined
+                          }
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
+                            pagination.page === item
+                              ? "bg-indigo-600 text-white"
+                              : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      ),
                   )}
 
                   <button
+                    type="button"
                     onClick={() =>
                       loadNotes(
                         Math.min(pagination.page + 1, pagination.totalPages),
@@ -899,7 +941,10 @@ export default function Dashboard() {
                 <Trash2 className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h2 id="delete-note-title" className="text-lg font-semibold text-slate-800">
+                <h2
+                  id="delete-note-title"
+                  className="text-lg font-semibold text-slate-800"
+                >
                   Delete Note
                 </h2>
                 <p className="text-sm text-slate-500">
@@ -908,11 +953,12 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="mt-5 text-slate-700">
-              Are you sure you want to permanently delete
-              <strong> "{selectedNote?.title}"</strong>?
+              Are you sure you want to permanently delete{" "}
+              <strong>"{selectedNote?.title}"</strong>?
             </p>
             <div className="flex justify-end gap-3 mt-8">
               <button
+                type="button"
                 ref={cancelDeleteRef}
                 onClick={() => {
                   setShowDeleteModal(false);
@@ -923,6 +969,7 @@ export default function Dashboard() {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={confirmDelete}
                 disabled={deleting}
                 className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"

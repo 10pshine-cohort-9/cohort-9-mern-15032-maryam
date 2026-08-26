@@ -106,6 +106,7 @@ describe("ProfilePanel", () => {
   describe("stored user helpers", () => {
     it("uses the user stored in sessionStorage", async () => {
       sessionStorage.setItem("user", JSON.stringify(storedUser));
+
       apiRequest.mockResolvedValueOnce({
         user: { ...storedUser, name: "Maryam" },
       });

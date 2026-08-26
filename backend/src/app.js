@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 
 const authRoutes = require("./routes/authRoutes");
 const noteRoutes = require("./routes/noteRoutes");
@@ -9,7 +10,14 @@ const errorHandler = require("./middlewares/errorHandler");
 
 const app = express();
 
-app.use(cors());
+app.use(helmet());
+
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
 app.use(loggerMiddleware);
 

@@ -54,12 +54,14 @@ function InsertUrlModal({ mode, onCancel, onConfirm }) {
         />
         <div className="flex justify-end gap-2 mt-4">
           <button
+            type="button"
             onClick={onCancel}
             className="px-3 py-1.5 text-sm rounded-lg text-slate-600 hover:bg-slate-50"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={() => value.trim() && onConfirm(value.trim())}
             className="px-3 py-1.5 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
           >

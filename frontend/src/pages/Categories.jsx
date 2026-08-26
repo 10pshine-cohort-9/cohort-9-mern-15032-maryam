@@ -36,15 +36,41 @@ const NAV_ITEMS = [
     icon: LayoutGrid,
     path: "/dashboard",
   },
-  { key: "all", label: "All Notes", icon: FileText, path: "/dashboard?filter=all" },
-  { key: "favorites", label: "Favorites", icon: Star, path: "/dashboard?filter=favorites" },
-  { key: "trash", label: "Trash", icon: Trash2, path: "/dashboard?filter=trash" },
-  { key: "categories", label: "Categories", icon: Folder, path: "/categories" },
-  { key: "tags", label: "Tags", icon: Tag, path: null },
+  {
+    key: "all",
+    label: "All Notes",
+    icon: FileText,
+    path: "/dashboard?filter=all",
+  },
+  {
+    key: "favorites",
+    label: "Favorites",
+    icon: Star,
+    path: "/dashboard?filter=favorites",
+  },
+  {
+    key: "trash",
+    label: "Trash",
+    icon: Trash2,
+    path: "/dashboard?filter=trash",
+  },
+  {
+    key: "categories",
+    label: "Categories",
+    icon: Folder,
+    path: "/categories",
+  },
+  {
+    key: "tags",
+    label: "Tags",
+    icon: Tag,
+    path: null,
+  },
 ];
 
 export default function Categories() {
   const navigate = useNavigate();
+
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,8 +78,11 @@ export default function Categories() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [search, setSearch] = useState("");
+
   const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem("user") || sessionStorage.getItem("user");
+    const raw =
+      localStorage.getItem("user") || sessionStorage.getItem("user");
+
     try {
       return raw ? JSON.parse(raw) : null;
     } catch {
@@ -69,13 +98,26 @@ export default function Categories() {
 
   useEffect(() => {
     let cancelled = false;
+
     setLoading(true);
+
     apiRequest("/notes/categories")
       .then((data) => {
-        if (!cancelled) setCategories(data.categories);
+        if (!cancelled) {
+          setCategories(data.categories);
+        }
       })
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false));
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
     return () => {
       cancelled = true;
     };
@@ -87,6 +129,7 @@ export default function Categories() {
 
   const showNotice = (message) => {
     setNotice(message);
+
     setTimeout(
       () => setNotice((current) => (current === message ? "" : current)),
       3000,
@@ -104,6 +147,7 @@ export default function Categories() {
           <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
             <FileText className="w-4.5 h-4.5 text-white" size={18} />
           </div>
+
           <span className="font-semibold text-slate-800">Notes App</span>
         </div>
 
@@ -111,14 +155,17 @@ export default function Categories() {
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = item.key === "categories";
+
             return (
               <button
+                type="button"
                 key={item.key}
                 onClick={() => {
                   if (!item.path) {
                     showNotice(`${item.label} view is coming soon.`);
                     return;
                   }
+
                   navigate(item.path);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -135,13 +182,16 @@ export default function Categories() {
 
           <div className="!mt-4 pt-4 border-t border-slate-100 space-y-1">
             <button
-                onClick={() => navigate("/settings")}
+              type="button"
+              onClick={() => navigate("/settings")}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
               <Settings className="w-4.5 h-4.5" size={18} />
               Settings
             </button>
+
             <button
+              type="button"
               onClick={() => setProfileOpen(true)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
@@ -155,13 +205,17 @@ export default function Categories() {
           <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
             <Cloud className="w-5 h-5 text-indigo-600" />
           </div>
+
           <p className="text-sm font-semibold text-slate-800">
             Backup your notes
           </p>
+
           <p className="text-xs text-slate-500 mt-1 mb-3">
             Enable cloud backup to keep your notes safe.
           </p>
+
           <button
+            type="button"
             onClick={() => showNotice("Cloud backup isn't implemented yet.")}
             className="w-full bg-indigo-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-700"
           >
@@ -173,6 +227,7 @@ export default function Categories() {
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center gap-4 px-6">
           <button
+            type="button"
             onClick={() => setSidebarOpen((s) => !s)}
             className="text-slate-500 hover:text-slate-700"
             aria-label="Toggle sidebar"
@@ -183,12 +238,14 @@ export default function Categories() {
           <div className="flex-1 max-w-xl">
             <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50">
               <Search className="w-4 h-4 text-slate-400" />
+
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search categories..."
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
               />
+
               <kbd className="text-[10px] font-medium text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 bg-white">
                 Ctrl + K
               </kbd>
@@ -197,15 +254,18 @@ export default function Categories() {
 
           <div className="flex items-center gap-4 ml-auto">
             <button
+              type="button"
               onClick={() => showNotice("No new notifications.")}
               className="relative text-slate-500 hover:text-slate-700"
               aria-label="Notifications"
             >
               <Bell className="w-5 h-5" />
+
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-indigo-600" />
             </button>
 
             <button
+              type="button"
               onClick={() => setProfileOpen(true)}
               className="flex items-center gap-2"
             >
@@ -226,6 +286,7 @@ export default function Categories() {
                     .toUpperCase()
                 )}
               </div>
+
               <span className="text-sm font-medium text-slate-700">
                 {user?.name || "Account"}
               </span>
@@ -237,7 +298,9 @@ export default function Categories() {
           {notice && (
             <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-4 py-2.5">
               {notice}
+
               <button
+                type="button"
                 onClick={() => setNotice("")}
                 className="text-amber-600 font-medium"
               >
@@ -248,12 +311,17 @@ export default function Categories() {
 
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Categories</h1>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Categories
+              </h1>
+
               <p className="text-sm text-slate-500 mt-1">
                 Browse your notes grouped by category.
               </p>
             </div>
+
             <button
+              type="button"
               onClick={() => navigate("/notes/new")}
               className="flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-indigo-700"
             >
@@ -282,7 +350,9 @@ export default function Categories() {
               <p className="text-slate-500 text-sm">
                 No categories yet — categories appear here once you add notes.
               </p>
+
               <button
+                type="button"
                 onClick={() => navigate("/notes/new")}
                 className="mt-3 text-indigo-600 text-sm font-medium hover:underline"
               >
@@ -299,8 +369,10 @@ export default function Categories() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {filteredCategories.map((cat, i) => {
                 const accent = ACCENTS[i % ACCENTS.length];
+
                 return (
                   <button
+                    type="button"
                     key={cat.name}
                     onClick={() =>
                       navigate(
@@ -314,9 +386,11 @@ export default function Categories() {
                     >
                       <Folder className="w-5 h-5" />
                     </div>
+
                     <p className="font-semibold text-slate-800 truncate">
                       {cat.name}
                     </p>
+
                     <p className="text-xs text-slate-500 mt-1">
                       {cat.count} {cat.count === 1 ? "note" : "notes"}
                     </p>
@@ -327,6 +401,7 @@ export default function Categories() {
           )}
         </main>
       </div>
+
       <ProfilePanel
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
