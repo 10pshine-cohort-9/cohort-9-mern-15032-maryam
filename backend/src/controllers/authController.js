@@ -3,6 +3,28 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const logger = require("../utils/logger");
 
+const isValidEmail = (email) => {
+  if (typeof email !== "string") {
+    return false;
+  }
+
+  const atIndex = email.indexOf("@");
+
+  if (atIndex <= 0 || atIndex !== email.lastIndexOf("@")) {
+    return false;
+  }
+
+  const domain = email.slice(atIndex + 1);
+  const dotIndex = domain.lastIndexOf(".");
+
+  return (
+    dotIndex > 0 &&
+    dotIndex < domain.length - 1 &&
+    !email.includes(" ") &&
+    !domain.includes(" ")
+  );
+};
+
 exports.signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -14,19 +36,23 @@ exports.signup = async (req, res) => {
       });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
+    if (!isValidEmail(email)) {
       return res.status(400).json({
         success: false,
         message: "Invalid email format.",
       });
     }
+    function isStrongPassword(pw) {
+      return (
+        pw.length >= 8 &&
+        /[a-z]/.test(pw) &&
+        /[A-Z]/.test(pw) &&
+        /\d/.test(pw) &&
+        /[@$!%*?&]/.test(pw)
+      );
+    }
 
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-    if (!passwordRegex.test(password)) {
+    if (!isStrongPassword(password)) {
       return res.status(400).json({
         success: false,
         message:
@@ -55,13 +81,25 @@ exports.signup = async (req, res) => {
       "New account created",
     );
 
+    const token = jwt.sign(
+      {
+        id: user._id,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      },
+    );
+
     res.status(201).json({
       success: true,
       message: "Account created",
+      token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
+        avatar: user.avatar,
       },
     });
   } catch (err) {
@@ -84,9 +122,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
+    if (!isValidEmail(email)) {
       return res.status(400).json({
         success: false,
         message: "Invalid email format.",
@@ -96,7 +132,10 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
-      logger.warn({ event: "login_failed", reason: "invalid_email" }, "Login failed");
+      logger.warn(
+        { event: "login_failed", reason: "invalid_email" },
+        "Login failed",
+      );
       return res.status(400).json({
         message: "Invalid Email",
       });
@@ -199,8 +238,7 @@ exports.updateProfile = async (req, res) => {
     }
 
     if (email !== undefined) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (typeof email !== "string" || !emailRegex.test(email)) {
+      if (!isValidEmail(email)) {
         return res.status(400).json({
           success: false,
           message: "Invalid email format.",
@@ -230,7 +268,11 @@ exports.updateProfile = async (req, res) => {
     }
 
     logger.info(
-      { event: "profile_updated", userId: user._id, fields: Object.keys(updates) },
+      {
+        event: "profile_updated",
+        userId: user._id,
+        fields: Object.keys(updates),
+      },
       "Profile updated",
     );
 

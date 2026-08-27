@@ -55,7 +55,9 @@ describe("NotesAuthPage", () => {
       await user.click(screen.getByRole("button", { name: "Sign Up" }));
 
       expect(screen.getByText("Create your account")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("Enter your name")).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText("Enter your name"),
+      ).toBeInTheDocument();
       expect(
         screen.getByPlaceholderText("Re-enter your password"),
       ).toBeInTheDocument();
@@ -217,108 +219,52 @@ describe("NotesAuthPage", () => {
       ).toBeInTheDocument();
     });
 
-    it("rejects a password shorter than 8 characters", async () => {
-      const user = userEvent.setup({ delay: null });
-      await goToSignup(user);
-
-      await user.type(screen.getByPlaceholderText("Enter your name"), "Maryam");
-      await user.type(
-        screen.getByPlaceholderText("Enter your email"),
-        "maryam@gmail.com",
-      );
-      await user.type(screen.getByPlaceholderText("Enter your password"), "weak");
-      await user.click(getSubmitButton());
-
-      expect(
-        await screen.findByText(
-          "Password must be at least 8 characters long.",
-        ),
-      ).toBeInTheDocument();
-    });
-
-    it("rejects a password missing an uppercase letter", async () => {
-      const user = userEvent.setup({ delay: null });
-      await goToSignup(user);
-
-      await user.type(screen.getByPlaceholderText("Enter your name"), "Maryam");
-      await user.type(
-        screen.getByPlaceholderText("Enter your email"),
-        "maryam@gmail.com",
-      );
-      await user.type(
-        screen.getByPlaceholderText("Enter your password"),
+    it.each([
+      [
+        "rejects a password shorter than 8 characters",
+        "weak",
+        "Password must be at least 8 characters long.",
+      ],
+      [
+        "rejects a password missing an uppercase letter",
         "abcdef1!",
-      );
-      await user.click(getSubmitButton());
-
-      expect(
-        await screen.findByText(
-          "Password must contain at least one uppercase letter.",
-        ),
-      ).toBeInTheDocument();
-    });
-
-    it("rejects a password missing a lowercase letter", async () => {
-      const user = userEvent.setup({ delay: null });
-      await goToSignup(user);
-
-      await user.type(screen.getByPlaceholderText("Enter your name"), "Maryam");
-      await user.type(
-        screen.getByPlaceholderText("Enter your email"),
-        "maryam@gmail.com",
-      );
-      await user.type(
-        screen.getByPlaceholderText("Enter your password"),
+        "Password must contain at least one uppercase letter.",
+      ],
+      [
+        "rejects a password missing a lowercase letter",
         "ABCDEF1!",
-      );
-      await user.click(getSubmitButton());
-
-      expect(
-        await screen.findByText(
-          "Password must contain at least one lowercase letter.",
-        ),
-      ).toBeInTheDocument();
-    });
-
-    it("rejects a password missing a number", async () => {
-      const user = userEvent.setup({ delay: null });
-      await goToSignup(user);
-
-      await user.type(screen.getByPlaceholderText("Enter your name"), "Maryam");
-      await user.type(
-        screen.getByPlaceholderText("Enter your email"),
-        "maryam@gmail.com",
-      );
-      await user.type(
-        screen.getByPlaceholderText("Enter your password"),
+        "Password must contain at least one lowercase letter.",
+      ],
+      [
+        "rejects a password missing a number",
         "Abcdefgh!",
-      );
-      await user.click(getSubmitButton());
-
-      expect(
-        await screen.findByText("Password must contain at least one number."),
-      ).toBeInTheDocument();
-    });
-
-    it("rejects a password missing a special character", async () => {
+        "Password must contain at least one number.",
+      ],
+      [
+        "rejects a password missing a special character",
+        "Abcdefg1",
+        "Password must contain at least one special character.",
+      ],
+    ])("%s", async (_testName, password, expectedMessage) => {
       const user = userEvent.setup({ delay: null });
       await goToSignup(user);
 
-      await user.type(screen.getByPlaceholderText("Enter your name"), "Maryam");
+      await user.type(
+        screen.getByPlaceholderText("Enter your name"),
+        "Maryam",
+      );
       await user.type(
         screen.getByPlaceholderText("Enter your email"),
         "maryam@gmail.com",
       );
       await user.type(
         screen.getByPlaceholderText("Enter your password"),
-        "Abcdefg1",
+        password,
       );
       await user.click(getSubmitButton());
 
       expect(
-        await screen.findByText(
-          "Password must contain at least one special character.",
-        ),
+        await screen.findByText(expectedMessage),
       ).toBeInTheDocument();
     });
 
@@ -457,31 +403,53 @@ describe("NotesAuthPage", () => {
   });
 
   describe("signup submission", () => {
-    it("shows a success alert and switches back to login on success", async () => {
+    it("stores the signup token and navigates to dashboard on success", async () => {
       const user = userEvent.setup({ delay: null });
-      mockFetchOnce(true, { success: true });
+
+      mockFetchOnce(true, {
+        success: true,
+        token: "signup-jwt-token",
+        user: {
+          id: "user-123",
+          name: "Maryam",
+          email: "maryam@gmail.com",
+        },
+      });
+
       render(<NotesAuthPage />);
 
       await user.click(screen.getByRole("button", { name: "Sign Up" }));
+
       await user.type(screen.getByPlaceholderText("Enter your name"), "Maryam");
+
       await user.type(
         screen.getByPlaceholderText("Enter your email"),
         "maryam@gmail.com",
       );
+
       await user.type(
         screen.getByPlaceholderText("Enter your password"),
         "MARy@m987",
       );
+
       await user.type(
         screen.getByPlaceholderText("Re-enter your password"),
         "MARy@m987",
       );
+
       await user.click(getSubmitButton());
 
-      expect(
-        await screen.findByText("Account created successfully!"),
-      ).toBeInTheDocument();
-      expect(screen.getByText("Welcome back!")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(mockNavigate).toHaveBeenCalledWith("/dashboard"),
+      );
+
+      expect(sessionStorage.getItem("token")).toBe("signup-jwt-token");
+
+      expect(JSON.parse(sessionStorage.getItem("user"))).toEqual({
+        id: "user-123",
+        name: "Maryam",
+        email: "maryam@gmail.com",
+      });
     });
   });
 
@@ -542,7 +510,9 @@ describe("NotesAuthPage", () => {
       render(<NotesAuthPage />);
       await user.click(screen.getByRole("button", { name: "Sign Up" }));
 
-      const confirmInput = screen.getByPlaceholderText("Re-enter your password");
+      const confirmInput = screen.getByPlaceholderText(
+        "Re-enter your password",
+      );
       const passwordInput = screen.getByPlaceholderText("Enter your password");
       expect(confirmInput).toHaveAttribute("type", "password");
 

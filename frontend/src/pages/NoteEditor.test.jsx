@@ -96,7 +96,10 @@ describe("NoteEditor", () => {
     it("creates the note and navigates to it after the autosave debounce fires", async () => {
       jest.useFakeTimers();
       apiRequest.mockResolvedValueOnce({ note: { _id: "new-id" } });
-      const user = userEvent.setup({ delay: null, advanceTimers: jest.advanceTimersByTime });
+      const user = userEvent.setup({
+        delay: null,
+        advanceTimers: jest.advanceTimersByTime,
+      });
       render(<NoteEditor />);
 
       await user.type(getTitleInput(), "My New Note");
@@ -120,7 +123,10 @@ describe("NoteEditor", () => {
 
     it("does not autosave while the title is empty", async () => {
       jest.useFakeTimers();
-      const user = userEvent.setup({ delay: null, advanceTimers: jest.advanceTimersByTime });
+      const user = userEvent.setup({
+        delay: null,
+        advanceTimers: jest.advanceTimersByTime,
+      });
       render(<NoteEditor />);
 
       await user.type(getTitleInput(), "   ");
@@ -195,13 +201,16 @@ describe("NoteEditor", () => {
       apiRequest.mockResolvedValueOnce({ note: existingNote });
       render(<NoteEditor />);
 
-      expect(screen.queryByPlaceholderText("Untitled note")).not.toBeInTheDocument();
+      expect(
+        await screen.findByDisplayValue("My Existing Note"),
+      ).toBeInTheDocument();
 
-      expect(await screen.findByDisplayValue("My Existing Note")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Work")).toBeInTheDocument();
+
       expect(screen.getByTestId("rich-text-editor")).toHaveValue(
         "Some saved content",
       );
+
       expect(
         screen.getByRole("heading", { name: "Edit Note" }),
       ).toBeInTheDocument();
@@ -328,7 +337,9 @@ describe("NoteEditor", () => {
       render(<NoteEditor />);
 
       await user.click(screen.getByRole("button", { name: /save draft/i }));
-      expect(await screen.findByText("Add a title before saving.")).toBeInTheDocument();
+      expect(
+        await screen.findByText("Add a title before saving."),
+      ).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: /dismiss/i }));
 

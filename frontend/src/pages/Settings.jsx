@@ -30,10 +30,30 @@ function getStoredUser() {
 }
 
 const NAV_ITEMS = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/dashboard" },
-  { key: "all", label: "All Notes", icon: FileText, path: "/dashboard?filter=all" },
-  { key: "favorites", label: "Favorites", icon: Star, path: "/dashboard?filter=favorites" },
-  { key: "trash", label: "Trash", icon: Trash2, path: "/dashboard?filter=trash" },
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    icon: LayoutGrid,
+    path: "/dashboard",
+  },
+  {
+    key: "all",
+    label: "All Notes",
+    icon: FileText,
+    path: "/dashboard?filter=all",
+  },
+  {
+    key: "favorites",
+    label: "Favorites",
+    icon: Star,
+    path: "/dashboard?filter=favorites",
+  },
+  {
+    key: "trash",
+    label: "Trash",
+    icon: Trash2,
+    path: "/dashboard?filter=trash",
+  },
   { key: "categories", label: "Categories", icon: Folder, path: "/categories" },
   { key: "tags", label: "Tags", icon: Tag, path: null },
 ];
@@ -54,7 +74,10 @@ export default function Settings() {
 
   const showNotice = (message) => {
     setNotice(message);
-    setTimeout(() => setNotice((current) => (current === message ? "" : current)), 3000);
+    setTimeout(
+      () => setNotice((current) => (current === message ? "" : current)),
+      3000,
+    );
   };
 
   const toggleTheme = () => {
@@ -90,6 +113,7 @@ export default function Settings() {
             const Icon = item.icon;
             return (
               <button
+                type="button"
                 key={item.key}
                 onClick={() => {
                   if (!item.path) {
@@ -125,7 +149,9 @@ export default function Settings() {
           <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
             <Cloud className="w-5 h-5 text-indigo-600" />
           </div>
-          <p className="text-sm font-semibold text-slate-800">Backup your notes</p>
+          <p className="text-sm font-semibold text-slate-800">
+            Backup your notes
+          </p>
           <p className="text-xs text-slate-500 mt-1 mb-3">
             Enable cloud backup to keep your notes safe.
           </p>
@@ -173,10 +199,17 @@ export default function Settings() {
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-indigo-600" />
             </button>
 
-            <button onClick={() => setProfileOpen(true)} className="flex items-center gap-2">
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="flex items-center gap-2"
+            >
               <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center overflow-hidden">
                 {user?.avatar ? (
-                  <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={user.avatar}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   initials
                 )}
@@ -192,7 +225,11 @@ export default function Settings() {
           {notice && (
             <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm px-4 py-2.5">
               {notice}
-              <button onClick={() => setNotice("")} className="text-amber-600 font-medium">
+              <button
+                type="button"
+                onClick={() => setNotice("")}
+                className="text-amber-600 font-medium"
+              >
                 Dismiss
               </button>
             </div>
@@ -216,7 +253,9 @@ export default function Settings() {
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-800">Dark Mode</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    Dark Mode
+                  </p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {theme === "dark" ? "Currently on" : "Currently off"}
                   </p>
@@ -241,7 +280,11 @@ export default function Settings() {
           </div>
         </main>
       </div>
-      <ProfilePanel open={profileOpen} onClose={() => setProfileOpen(false)} onUpdate={setUser} />
+      <ProfilePanel
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onUpdate={setUser}
+      />
     </div>
   );
 }

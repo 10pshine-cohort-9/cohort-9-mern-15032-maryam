@@ -3,7 +3,7 @@ const Note = require("../models/Note");
 const logger = require("../utils/logger");
 
 function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return str.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 function normalizeCategory(str) {
@@ -18,7 +18,9 @@ function categoryGroupStage() {
     $group: {
       _id: {
         $reduce: {
-          input: { $split: [{ $trim: { input: { $toLower: "$category" } } }, " "] },
+          input: {
+            $split: [{ $trim: { input: { $toLower: "$category" } } }, " "],
+          },
           initialValue: "",
           in: {
             $cond: [
@@ -45,7 +47,10 @@ function categoryMatchRegex(value) {
     .split(" ")
     .filter(Boolean)
     .map(escapeRegex);
-  return new RegExp(`^${words.join("\\s+")}$`, "i");
+
+  const separator = String.raw`\s+`;
+
+  return new RegExp(`^${words.join(separator)}$`, "i");
 }
 
 exports.getNotes = async (req, res) => {
@@ -91,8 +96,8 @@ exports.getNotes = async (req, res) => {
 
     const sortBy = sortMap[sort] || sortMap.updated_desc;
 
-    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 8, 1), 50);
+    const pageNum = Math.max(Number.parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(Number.parseInt(limit, 10) || 8, 1), 50);
     const skip = (pageNum - 1) * limitNum;
 
     const [notes, total] = await Promise.all([
@@ -123,24 +128,25 @@ exports.getStats = async (req, res) => {
   try {
     const ownerId = req.user.id;
 
-    const [totalNotes, favorites, trashItems, categoryGroups] = await Promise.all([
-      Note.countDocuments({ owner: ownerId, isDeleted: false }),
-      Note.countDocuments({
-        owner: ownerId,
-        isDeleted: false,
-        isFavorite: true,
-      }),
-      Note.countDocuments({ owner: ownerId, isDeleted: true }),
-      Note.aggregate([
-        {
-          $match: {
-            owner: new mongoose.Types.ObjectId(ownerId),
-            isDeleted: false,
+    const [totalNotes, favorites, trashItems, categoryGroups] =
+      await Promise.all([
+        Note.countDocuments({ owner: ownerId, isDeleted: false }),
+        Note.countDocuments({
+          owner: ownerId,
+          isDeleted: false,
+          isFavorite: true,
+        }),
+        Note.countDocuments({ owner: ownerId, isDeleted: true }),
+        Note.aggregate([
+          {
+            $match: {
+              owner: new mongoose.Types.ObjectId(ownerId),
+              isDeleted: false,
+            },
           },
-        },
-        categoryGroupStage(),
-      ]),
-    ]);
+          categoryGroupStage(),
+        ]),
+      ]);
 
     res.json({
       success: true,
@@ -245,7 +251,8 @@ exports.createNote = async (req, res) => {
     const note = await Note.create({
       title: title.trim(),
       content: content || "",
-      category: category && category.trim() ? normalizeCategory(category) : "General",
+      category:
+        category?.trim() ? normalizeCategory(category) : "General",
       owner: req.user.id,
     });
 
@@ -271,6 +278,34 @@ exports.createNote = async (req, res) => {
   }
 };
 
+function validateUpdateTitle(title) {
+  if (typeof title !== "string" || !title.trim()) {
+    return "Title is required.";
+  }
+
+  if (title.trim().length > 100) {
+    return "Title must be 100 characters or fewer.";
+  }
+
+  return null;
+}
+
+function validateUpdateContent(content) {
+  if (typeof content !== "string") {
+    return "Content must be text.";
+  }
+
+  return null;
+}
+
+function validateUpdateCategory(category) {
+  if (typeof category !== "string") {
+    return "Category must be text.";
+  }
+
+  return null;
+}
+
 exports.updateNote = async (req, res) => {
   try {
     const { title, content, category } = req.body;
@@ -285,38 +320,41 @@ exports.updateNote = async (req, res) => {
     }
 
     if (title !== undefined) {
-      if (typeof title !== "string" || !title.trim()) {
+      const titleError = validateUpdateTitle(title);
+
+      if (titleError) {
         return res.status(400).json({
           success: false,
-          message: "Title is required.",
+          message: titleError,
         });
       }
-      if (title.trim().length > 100) {
-        return res.status(400).json({
-          success: false,
-          message: "Title must be 100 characters or fewer.",
-        });
-      }
+
       note.title = title.trim();
     }
 
     if (content !== undefined) {
-      if (typeof content !== "string") {
+      const contentError = validateUpdateContent(content);
+
+      if (contentError) {
         return res.status(400).json({
           success: false,
-          message: "Content must be text.",
+          message: contentError,
         });
       }
+
       note.content = content;
     }
 
     if (category !== undefined) {
-      if (typeof category !== "string") {
+      const categoryError = validateUpdateCategory(category);
+
+      if (categoryError) {
         return res.status(400).json({
           success: false,
-          message: "Category must be text.",
+          message: categoryError,
         });
       }
+
       note.category = category.trim() ? normalizeCategory(category) : "General";
     }
 
@@ -334,9 +372,14 @@ exports.updateNote = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+
     if (err.name === "ValidationError") {
-      return res.status(400).json({ success: false, message: err.message });
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
     }
+
     return res.status(500).json({
       success: false,
       message: "Something went wrong. Please try again later.",

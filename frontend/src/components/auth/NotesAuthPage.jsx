@@ -15,6 +15,140 @@ import {
   Cloud,
 } from "lucide-react";
 
+const ALERT_CLASSES = {
+  error: "border-red-300 bg-red-50 text-red-800",
+  warning: "border-amber-300 bg-amber-50 text-amber-800",
+  success: "border-green-300 bg-green-50 text-green-800",
+};
+
+const EMPTY_ERRORS = {
+  name: "",
+  email: "",
+  password: "",
+  confirm: "",
+  general: "",
+};
+
+const EMPTY_ALERT = {
+  type: "",
+  title: "",
+  message: "",
+};
+
+function isValidEmail(value) {
+  const email = value.trim();
+
+  return /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email);
+}
+
+function validateSignupForm(form) {
+  if (!form.name.trim()) {
+    return { name: "Full name is required." };
+  }
+
+  if (form.name.trim().length < 3) {
+    return {
+      name: "Full name must contain at least 3 characters.",
+    };
+  }
+
+  if (!form.email.trim()) {
+    return { email: "Email address is required." };
+  }
+
+  if (!isValidEmail(form.email)) {
+    return {
+      email: "Please enter a valid email address.",
+    };
+  }
+
+  if (!form.password) {
+    return { password: "Password is required." };
+  }
+
+  if (form.password.length < 8) {
+    return {
+      password: "Password must be at least 8 characters long.",
+    };
+  }
+
+  if (!/[A-Z]/.test(form.password)) {
+    return {
+      password: "Password must contain at least one uppercase letter.",
+    };
+  }
+
+  if (!/[a-z]/.test(form.password)) {
+    return {
+      password: "Password must contain at least one lowercase letter.",
+    };
+  }
+
+  if (!/\d/.test(form.password)) {
+    return {
+      password: "Password must contain at least one number.",
+    };
+  }
+
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(form.password)) {
+    return {
+      password: "Password must contain at least one special character.",
+    };
+  }
+
+  if (!form.confirm) {
+    return {
+      confirm: "Please confirm your password.",
+    };
+  }
+
+  if (form.password !== form.confirm) {
+    return {
+      confirm: "Passwords do not match.",
+    };
+  }
+
+  return null;
+}
+
+function validateLoginForm(form) {
+  if (!form.email.trim()) {
+    return { email: "Email address is required." };
+  }
+
+  if (!isValidEmail(form.email)) {
+    return {
+      email: "Please enter a valid email address.",
+    };
+  }
+
+  if (!form.password) {
+    return { password: "Password is required." };
+  }
+
+  return null;
+}
+
+function validateForm(form, isLogin) {
+  return isLogin ? validateLoginForm(form) : validateSignupForm(form);
+}
+
+function getAuthRequest(form, isLogin) {
+  return {
+    url: isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/signup`,
+    body: isLogin
+      ? {
+          email: form.email,
+          password: form.password,
+        }
+      : {
+          name: form.name,
+          email: form.email,
+          password: form.password,
+        },
+  };
+}
+
 export default function NotesAuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
@@ -22,18 +156,8 @@ export default function NotesAuthPage() {
   const [showPw2, setShowPw2] = useState(false);
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirm: "",
-    general: "",
-  });
-  const [alert, setAlert] = useState({
-    type: "",
-    title: "",
-    message: "",
-  });
+  const [errors, setErrors] = useState(EMPTY_ERRORS);
+  const [alert, setAlert] = useState(EMPTY_ALERT);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -43,14 +167,13 @@ export default function NotesAuthPage() {
   });
 
   const isLogin = mode === "login";
- useEffect(() => {
+  useEffect(() => {
     const token =
-        localStorage.getItem("token") ||
-        sessionStorage.getItem("token");
+      localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token) {
-        navigate("/dashboard");
+      navigate("/dashboard");
     }
-}, [navigate]);
+  }, [navigate]);
   const update = (key) => (e) => {
     setForm((f) => ({
       ...f,
@@ -64,176 +187,48 @@ export default function NotesAuthPage() {
     }));
   };
 
+  const handleLoginSuccess = (data) => {
+    const storage = form.remember ? localStorage : sessionStorage;
+
+    storage.setItem("token", data.token);
+    storage.setItem("user", JSON.stringify(data.user));
+
+    setAlert({
+      type: "success",
+      title: "Success",
+      message: "Login successful!",
+    });
+
+    navigate("/dashboard");
+  };
+
+  const handleSignupSuccess = (data) => {
+    sessionStorage.setItem("token", data.token);
+    sessionStorage.setItem("user", JSON.stringify(data.user));
+
+    navigate("/dashboard");
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrors({
-      name: "",
-      email: "",
-      password: "",
-      confirm: "",
-      general: "",
-    });
+
+    setErrors(EMPTY_ERRORS);
     setSuccess("");
-    setAlert({
-      type: "",
-      title: "",
-      message: "",
-    });
+    setAlert(EMPTY_ALERT);
     setLoading(true);
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validationError = validateForm(form, isLogin);
 
-    if (!isLogin) {
-      if (!form.name.trim()) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          name: "Full name is required.",
-        }));
-        return;
-      }
-
-      if (form.name.trim().length < 3) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          name: "Full name must contain at least 3 characters.",
-        }));
-        return;
-      }
-
-      if (!form.email.trim()) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          email: "Email address is required.",
-        }));
-        return;
-      }
-
-      if (!emailRegex.test(form.email)) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          email: "Please enter a valid email address.",
-        }));
-        return;
-      }
-
-      if (!form.password) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          password: "Password is required.",
-        }));
-        return;
-      }
-
-      if (form.password.length < 8) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          password: "Password must be at least 8 characters long.",
-        }));
-        return;
-      }
-
-      if (!/[A-Z]/.test(form.password)) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          password: "Password must contain at least one uppercase letter.",
-        }));
-        return;
-      }
-
-      if (!/[a-z]/.test(form.password)) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          password: "Password must contain at least one lowercase letter.",
-        }));
-        return;
-      }
-
-      if (!/\d/.test(form.password)) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          password: "Password must contain at least one number.",
-        }));
-        return;
-      }
-
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(form.password)) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          password: "Password must contain at least one special character.",
-        }));
-        return;
-      }
-
-      if (!form.confirm) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          confirm: "Please confirm your password.",
-        }));
-        return;
-      }
-
-      if (form.password !== form.confirm) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          confirm: "Passwords do not match.",
-        }));
-        return;
-      }
+    if (validationError) {
+      setLoading(false);
+      setErrors((prev) => ({
+        ...prev,
+        ...validationError,
+      }));
+      return;
     }
 
-    if (isLogin) {
-      if (!form.email.trim()) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          email: "Email address is required.",
-        }));
-        return;
-      }
-
-      if (!emailRegex.test(form.email)) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          email: "Please enter a valid email address.",
-        }));
-        return;
-      }
-
-      if (!form.password) {
-        setLoading(false);
-        setErrors((prev) => ({
-          ...prev,
-          password: "Password is required.",
-        }));
-        return;
-      }
-    }
-
-    const url = isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/signup`;
-
-    const body = isLogin
-      ? {
-          email: form.email,
-          password: form.password,
-        }
-      : {
-          name: form.name,
-          email: form.email,
-          password: form.password,
-        };
+    const { url, body } = getAuthRequest(form, isLogin);
 
     try {
       const response = await fetch(url, {
@@ -246,38 +241,19 @@ export default function NotesAuthPage() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        if (isLogin) {
-          const storage = form.remember ? localStorage : sessionStorage;
-          storage.setItem("token", data.token);
-          storage.setItem("user", JSON.stringify(data.user));
-          setAlert({
-            type: "success",
-            title: "Success",
-            message: "Login successful!",
-          });
-          navigate("/dashboard");
-        } else {
-          setAlert({
-            type: "success",
-            title: "Success",
-            message: "Account created successfully!",
-          });
-          setMode("login");
-          setForm({
-            name: "",
-            email: "",
-            password: "",
-            confirm: "",
-            remember: false,
-          });
-        }
-      } else {
+      if (!response.ok) {
         setAlert({
           type: "error",
           title: "Authentication Failed",
           message: data.message,
         });
+        return;
+      }
+
+      if (isLogin) {
+        handleLoginSuccess(data);
+      } else {
+        handleSignupSuccess(data);
       }
     } catch (err) {
       setAlert({
@@ -426,6 +402,7 @@ export default function NotesAuthPage() {
             {["login", "signup"].map((m) => (
               <button
                 key={m}
+                type="button"
                 onClick={() => {
                   setMode(m);
                   setErrors({
@@ -473,11 +450,7 @@ export default function NotesAuthPage() {
           {alert.message && (
             <div
               className={`mb-4 flex items-start gap-3 rounded-lg border p-4 ${
-                alert.type === "error"
-                  ? "border-red-300 bg-red-50 text-red-800"
-                  : alert.type === "warning"
-                    ? "border-amber-300 bg-amber-50 text-amber-800"
-                    : "border-green-300 bg-green-50 text-green-800"
+                ALERT_CLASSES[alert.type] || ALERT_CLASSES.success
               }`}
             >
               <div>
@@ -538,10 +511,9 @@ export default function NotesAuthPage() {
               }
               rightLabel={
                 isLogin && (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
+                  <button
+                    type="button"
+                    onClick={() => {
                       setSuccess("");
                       setAlert({
                         type: "warning",
@@ -553,7 +525,7 @@ export default function NotesAuthPage() {
                     className="text-xs font-medium text-indigo-600 hover:underline"
                   >
                     Forgot password?
-                  </a>
+                  </button>
                 )
               }
             />
@@ -591,7 +563,7 @@ export default function NotesAuthPage() {
                   onChange={update("remember")}
                   className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
-                Remember me
+                <span>Remember me</span>
               </label>
             )}
             <button
@@ -649,6 +621,7 @@ export default function NotesAuthPage() {
           <p className="text-center text-sm text-slate-500 mt-6">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button
+              type="button"
               onClick={() => {
                 setMode(isLogin ? "signup" : "login");
                 setErrors({
